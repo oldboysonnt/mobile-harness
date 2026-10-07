@@ -27,8 +27,10 @@ def _api(slug: str) -> str:
 
 
 def _default_fj(url: str):
-    with urllib.request.urlopen(url, timeout=30) as r:
-        return json.loads(r.read())
+    req = urllib.request.Request(url, headers={"User-Agent": "mph-harness"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        d = json.loads(r.read())
+    return d.get("assets", []) if isinstance(d, dict) else d
 
 
 def resolve_latest(slugs, fetch_json=None, suffix: str = ".zip") -> tuple[str, str]:
