@@ -28,7 +28,7 @@ class Config:
     """Snapshot cấu hình bất biến của một lần chạy."""
 
     sdk: Path
-    burp_exe: Path
+    burp_exe: Path | None
     burp_bin: Path
     git_bash: Path
     avd_name: str
@@ -38,16 +38,14 @@ class Config:
     workspace: Path
 
 
-def _resolve_burp() -> Path:
+def _resolve_burp() -> Path | None:
+    """Trả đường dẫn Burp hoặc None (doctor báo, lệnh cần Burp mới raise)."""
     if os.environ.get("BURP_PATH"):
         return Path(os.environ["BURP_PATH"])
     for c in _BURP_CANDIDATES:
         if Path(c).exists():
             return Path(c)
-    raise HarnessError(
-        "khong tim thay Burp Suite Pro",
-        hint="dat env BURP_PATH tro den burpsuite_pro.jar (hoac exe) Burp",
-    )
+    return None
 
 
 def load_config(path: Path | None = None) -> Config:

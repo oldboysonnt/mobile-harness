@@ -27,3 +27,10 @@ def test_explicit_file(tmp_path):
 def test_harness_error_hint():
     e = HarnessError("burp khong start", hint="kiem tra license")
     assert "kiem tra license" in str(e)
+
+def test_no_burp_returns_none_not_raise(tmp_path, monkeypatch):
+    monkeypatch.delenv("BURP_PATH", raising=False)
+    import mph.config as C
+    monkeypatch.setattr(C, "_BURP_CANDIDATES", ())
+    cfg = C.load_config(tmp_path / "nonexistent.toml")
+    assert cfg.burp_exe is None  # doctor phải in FAIL, không traceback

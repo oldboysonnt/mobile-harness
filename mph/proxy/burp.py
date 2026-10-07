@@ -81,9 +81,9 @@ def burp_start(cfg, project_file: Path, config_file: Path,
     """Start Burp; idempotent (port đã mở → -1). Trả pid."""
     if _probe(cfg.proxy_port):
         return -1
-    if not Path(cfg.burp_exe).exists():
+    if cfg.burp_exe is None or not Path(cfg.burp_exe).exists():
         raise HarnessError(
-            f"burp exe khong ton tai: {cfg.burp_exe}",
+            f"burp exe khong ton tai: {getattr(cfg, 'burp_exe', None)}",
             hint="dat BURP_PATH hoac sua mph.toml [paths]",
         )
     Path(project_file).parent.mkdir(parents=True, exist_ok=True)

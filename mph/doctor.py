@@ -29,7 +29,8 @@ def check_env(cfg: Config, probes: Probes | None = None) -> list[tuple[str, bool
         ("android-sdk", p.exists(cfg.sdk), f"dat ANDROID_HOME — khong thay {cfg.sdk}"),
         ("emulator", p.exists(Path(cfg.sdk) / "emulator" / "emulator.exe"),
          "sdkmanager 'emulator'"),
-        ("burp", p.exists(cfg.burp_exe), "dat env BURP_PATH tro den jar/exe Burp"),
+        ("burp", cfg.burp_exe is not None and p.exists(cfg.burp_exe),
+         "dat env BURP_PATH tro den jar/exe Burp"),
         ("git-bash", p.exists(cfg.git_bash), "cai Git for Windows"),
     ]
     devs = p.devices()
