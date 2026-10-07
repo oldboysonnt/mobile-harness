@@ -69,6 +69,9 @@ def install_system_ca(der: bytes, adb) -> str:
         )
     base = "/data/local/tmp/mph-cacerts"
     cmds = (
+        # tháo bind của lần chạy trước (nếu có) để nhìn thấy apex gốc
+        "umount /system/etc/security/cacerts 2>/dev/null; "
+        "umount /apex/com.android.conscrypt/cacerts 2>/dev/null; true",
         f"rm -rf {base} && mkdir -p {base}",
         f"cp /apex/com.android.conscrypt/cacerts/* {base}/",
     )
