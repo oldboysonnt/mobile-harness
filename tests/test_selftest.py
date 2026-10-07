@@ -127,3 +127,28 @@ def test_p2_extends_p1(tmp_path):
     names = [r[0] for r in rows]
     assert ok is True
     assert {"magisk", "integrity", "frida", "unpin-smoke"} <= set(names)
+
+def test_p3_green(tmp_path):
+    from mph.selftest import run_p3
+    class DepsP3(DepsFail):
+        device_route_probe = staticmethod(lambda adb, port: True)
+        @staticmethod
+        def device_https_probe(adb, port):
+            return "nocurl", "skipped"
+        magisk_present = staticmethod(lambda adb: True)
+        integrity_status = staticmethod(lambda adb, cfg: {"shamiko": True,
+            "pif": True, "zygisk": True, "denylist": 1, "fingerprints": []})
+        frida_start = staticmethod(lambda adb, cfg: "/data/local/tmp/sysmondd")
+        frida_health = staticmethod(lambda adb: True)
+        unpin_smoke = staticmethod(lambda adb, cfg: (0, ""))
+        pull_apk = staticmethod(lambda adb, pkg, dest: dest / f"{pkg}.apk")
+        decompile = staticmethod(lambda apk, out: out)
+        @staticmethod
+        def parse_manifest(jadx_out):
+            return {"package": "x", "exported": {"activities": [".Main"]},
+                    "deeplinks": [], "permissions": []}
+        ensure_indexed = staticmethod(lambda cfg, out: {"status": "ok"})
+    ok, rows = run_p3(FakeCfg(tmp_path), deps=DepsP3)
+    names = [r[0] for r in rows]
+    assert ok is True
+    assert {"pull", "jadx", "manifest", "index"} <= set(names)

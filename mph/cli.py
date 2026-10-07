@@ -24,6 +24,8 @@ from .frida.server import frida_stop as frida_server_stop
 from .proxy import burp as burp_mod
 from .proxy import cert as cert_mod
 from .proxy import route as route_mod
+from .re import apks as apks_mod, index as index_mod, jadx as jadx_mod
+from .re import manifest as manifest_mod
 from .root.brutdroid import brutdroid_vendor
 from .root.integrity import fingerprint_use, integrity_install, integrity_status
 from .root.rootavd import root_via_rootavd
@@ -53,6 +55,10 @@ app.add_typer(proxy_app, name="proxy")
 app.add_typer(root_app, name="root")
 app.add_typer(frida_app, name="frida")
 app.add_typer(integrity_app, name="integrity")
+apks_app = typer.Typer(help="APK: list/pull/install")
+re_app = typer.Typer(help="Reverse engineering: jadx/manifest/index")
+app.add_typer(apks_app, name="apks")
+app.add_typer(re_app, name="re")
 
 
 @app.command()
@@ -144,7 +150,10 @@ def selftest(phase: str = typer.Option("p1", help="p1 = HTTPS qua Burp; p2 = + m
     from .selftest import run_p1, run_p2
 
     cfg = _load_config()
-    if phase == "p2":
+    if phase == "p3":
+        from .selftest import run_p3
+        ok, rows = run_p3(cfg)
+    elif phase == "p2":
         ok, rows = run_p2(cfg)
     else:
         ok, rows = run_p1(cfg)
@@ -236,3 +245,53 @@ def integrity_use_cmd(name: str) -> None:
     ok = fingerprint_use(Adb(serial=serial) if serial else Adb(),
                          _load_config(), name)
     print("applied" if ok else f"khong thay fingerprints/{name}.json")
+
+
+@apks_app.command("list")
+def apks_list():
+    serial = avd_mod.avd_serial()
+    for pkg in apks_mod.list_packages(Adb(serial=serial) if serial else Adb()):
+        print(pkg)
+
+
+@apks_app.command("pull")
+def apks_pull(package: str, app: str = typer.Option(None, help="ten workspace")):
+    cfg = _load_config()
+    serial = avd_mod.avd_serial(cfg.avd_name)
+    ws = apks_mod.app_workspace(cfg, app or package.replace('.', '_'))
+    print(apks_mod.pull_apk(Adb(serial=serial), package, ws / "apk"))
+
+
+@apks_app.command("install")
+def apks_install(apk: Path):
+    serial = avd_mod.avd_serial()
+    print("installed" if apks_mod.install_apk(
+        Adb(serial=serial) if serial else Adb(), Path(apk)) else "fail")
+
+
+@re_app.command("jadx")
+def re_jadx(app_name: str):
+    cfg = _load_config()
+    ws = apks_mod.app_workspace(cfg, app_name)
+    apk = next((ws / "apk").glob("*.apk"), None)
+    if apk is None:
+        print("khong thay apk — chay: mph apks pull <pkg>")
+        raise typer.Exit(code=1)
+    print(jadx_mod.decompile(apk, ws / "jadx-out", cfg.jadx_bin))
+
+
+@re_app.command("manifest")
+def re_manifest(app_name: str):
+    cfg = _load_config()
+    ws = apks_mod.app_workspace(cfg, app_name)
+    m = manifest_mod.parse_manifest(ws / "jadx-out")
+    print(manifest_mod.write_summary(m, ws / "manifest.json"))
+
+
+@re_app.command("index")
+def re_index(app_name: str):
+    cfg = _load_config()
+    ws = apks_mod.app_workspace(cfg, app_name)
+    print(json.dumps(index_mod.ensure_indexed(cfg, ws / "jadx-out"),
+                     ensure_ascii=False))
+

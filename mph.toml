@@ -35,3 +35,8 @@ port             = 27042
 [vendor]
 spic_slug   = "herzhenr/spic-android"
 rootavd_url = 'https://gitlab.com/newbit/rootAVD/-/archive/master/rootAVD-master.tar.gz'
+
+[re]
+jadx_bin  = 'C:/Users/sonnt/Documents/JADX/bin/jadx.bat'  # abs path — PATH resolve không ổn định qua Git Bash
+index_cmd = 'C:/Users/sonnt/AppData/Local/Programs/codebase-memory-mcp/codebase-memory-mcp.exe'
+index_mode = "moderate"

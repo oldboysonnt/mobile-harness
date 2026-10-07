@@ -55,6 +55,12 @@ class Config:
     rootavd_url: str = (
         "https://gitlab.com/newbit/rootAVD/-/archive/master/rootAVD-master.tar.gz"
     )
+    jadx_bin: str = "C:/Users/sonnt/Documents/JADX/bin/jadx.bat"
+    index_cmd: str = (
+        "C:/Users/sonnt/AppData/Local/Programs/codebase-memory-mcp/"
+        "codebase-memory-mcp.exe"
+    )
+    index_mode: str = "moderate"
     tools_dir: Path = _REPO_ROOT / "tools"
     fingerprints_dir: Path = _REPO_ROOT / "fingerprints"
 
@@ -81,6 +87,7 @@ def load_config(path: Path | None = None) -> Config:
     root = data.get("root", {})
     frida = data.get("frida", {})
     vendor = data.get("vendor", {})
+    re_sec = data.get("re", {})
     sdk = Path(
         os.environ.get("ANDROID_HOME")
         or p.get("sdk", r"C:\Users\sonnt\AppData\Local\Android\Sdk")
@@ -116,6 +123,13 @@ def load_config(path: Path | None = None) -> Config:
             "rootavd_url",
             "https://gitlab.com/newbit/rootAVD/-/archive/master/rootAVD-master.tar.gz",
         )),
+        jadx_bin=str(re_sec.get("jadx_bin",
+            "C:/Users/sonnt/Documents/JADX/bin/jadx.bat")),
+        index_cmd=str(re_sec.get(
+            "index_cmd",
+            "C:/Users/sonnt/AppData/Local/Programs/codebase-memory-mcp/"
+            "codebase-memory-mcp.exe")),
+        index_mode=str(re_sec.get("index_mode", "moderate")),
         tools_dir=_REPO_ROOT / "tools",
         fingerprints_dir=_REPO_ROOT / "fingerprints",
     )
