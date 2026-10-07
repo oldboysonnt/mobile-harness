@@ -54,6 +54,6 @@ def test_re_section(tmp_path, monkeypatch):
     monkeypatch.delenv("ANDROID_HOME", raising=False)
     monkeypatch.delenv("BURP_PATH", raising=False)
     cfg = load_config(tmp_path / "nonexistent.toml")
-    assert cfg.jadx_bin == "jadx"
+    assert cfg.jadx_bin == "jadx.bat"
     assert cfg.index_cmd.endswith("codebase-memory-mcp.exe")
     assert cfg.index_mode == "moderate"
