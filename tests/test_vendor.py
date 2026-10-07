@@ -83,3 +83,47 @@ def test_vendor_all_returns_expected_keys(tmp_path):
     assert set(got) == {"magisk", "shamiko", "pif", "frida-server", "spic", "rootavd"}
     assert (tmp_path / "tools" / "frida-server.xz").exists()
     assert (tmp_path / "tools" / "rootavd" / "rootAVD.sh").exists()
+
+def test_resolver_name_filter_skips_debug_apk():
+    def fj(url):
+        return [
+            {"browser_download_url": "u-dbg", "name": "app-debug.apk"},
+            {"browser_download_url": "u-rel", "name": "Magisk-v30.7.apk"},
+        ]
+    _s, asset = resolve_latest(["topjohnwu/Magisk"], fetch_json=fj,
+                               suffix=".apk", contains="Magisk-v")
+    assert asset == "u-rel"
+
+def test_vendor_all_skips_api_when_vendored(tmp_path):
+    class FakeCfg:
+        magisk_slug = "topjohnwu/Magisk"
+        shamiko_slug = "LSPosed/LSPosed.github.io"
+        pif_slugs = ("osm0sis/PlayIntegrityFork",)
+        spic_slug = "herzhenr/spic-android"
+        rootavd_url = "u5"
+        frida_server_url_tpl = "https://g/{ver}/frida-server.xz"
+        frida_client_ver = "1.2.3"
+        tools_dir = tmp_path / "tools"; fingerprints_dir = tmp_path / "fp"
+    # mọi artifact đã có marker (frida-server với đúng URL version)
+    t = tmp_path / "tools"; t.mkdir(parents=True)
+    for n in ("magisk.apk", "shamiko.zip", "pif.zip", "spic.apk"):
+        (t / n).write_bytes(b"x"); (t / (n + ".ok")).write_text("u", encoding="ascii")
+    (t / "frida-server.xz").write_bytes(b"x")
+    (t / "frida-server.xz.ok").write_text("https://g/1.2.3/frida-server.xz",
+                                          encoding="ascii")
+    ra = t / "rootavd"; ra.mkdir(); (ra / "rootAVD.sh").write_text("#")
+    def boom(url):  # API call nào cũng là lỗi test
+        raise AssertionError("API called though vendored: " + url)
+    def fetch(url, d): raise AssertionError("download called though vendored")
+    got = vendor_all(FakeCfg(), fetch=fetch, fetch_json=boom)
+    assert set(got) == {"magisk", "shamiko", "pif", "frida-server", "spic", "rootavd"}
+
+def test_marker_url_mismatch_refetches(tmp_path):
+    dest = tmp_path / "x.apk"
+    dest.write_bytes(b"old")
+    (tmp_path / "x.apk.ok").write_text("https://old/url", encoding="ascii")
+    calls = []
+    def fetch(url, d):
+        calls.append(url); _write_bytes(d, b"new")
+    download("https://new/url", dest, fetch=fetch)
+    assert dest.read_bytes() == b"new" and len(calls) == 1
