@@ -55,13 +55,16 @@ def setup_run() -> None:
         ensure_cmdline_tools(sdk, Path("tools") / "cache")
     install_image(sdk, cfg.image)
     create_avd(sdk, cfg.avd_name, cfg.image)
-    avd_mod.avd_boot(sdk, cfg.avd_name)
-    serial = avd_mod.avd_serial()
+    avd_mod.avd_boot(sdk, cfg.avd_name,
+                     log_path=Path(cfg.workspace) / "logs" / "emulator.log")
+    serial = avd_mod.wait_serial(timeout=120)
     if not serial:
-        raise typer.Exit("khong thay emulator serial sau boot", code=1)
+        print("khong thay emulator serial sau 120s — xem workspace/logs/emulator.log")
+        raise typer.Exit(code=1)
     adb = Adb(serial=serial)
     if not avd_mod.wait_booted(serial, adb):
-        raise typer.Exit("timeout cho boot (300s)", code=1)
+        print("timeout cho boot (300s)")
+        raise typer.Exit(code=1)
     adb.run("root")
     print(f"ready: {serial}")
 
