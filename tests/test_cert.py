@@ -89,6 +89,8 @@ def test_install_overwrites():
     assert len(pushed) == 2  # idempotent: chạy 2 lần, push 2 lần, cùng tên
     assert all(c[2].endswith(n1) for c in pushed)
     shell_cmds = [" ".join(c[1:]) for c in a.calls if c[0] == "shell"]
+    assert any("mount --bind" in j and "/apex/com.android.conscrypt/cacerts" in j
+               for j in shell_cmds)
     assert any("mount --bind" in j and "/system/etc/security/cacerts" in j
                for j in shell_cmds)
-    assert any(j.startswith("cp /system/etc/security/cacerts") for j in shell_cmds)
+    assert any(j.startswith("cp /apex/com.android.conscrypt/cacerts") for j in shell_cmds)
