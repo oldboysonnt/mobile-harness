@@ -1,9 +1,17 @@
 """CLI chính của mph — các group lệnh được thêm dần theo task."""
 import json
 import socket
+import sys
 from pathlib import Path
 
 import typer
+
+# console Windows mặc định cp1252 — chuỗi tiếng Việt làm print vỡ
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, OSError):
+        pass
 
 from .bootstrap import create_avd, ensure_cmdline_tools, install_image
 from .config import load_config
