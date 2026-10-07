@@ -27,10 +27,10 @@ def _device_https_probe(adb: Adb, port: int) -> tuple[str, str]:
 
 
 def _device_route_probe(adb: Adb, port: int) -> bool:
-    """CONNECT handshake qua proxy từ trong device — chỉ cần Burp trả 200."""
+    """CONNECT handshake qua proxy từ trong device — toybox nc cần giữ stdin mở."""
     r = adb.run(
         "shell",
-        f'printf "CONNECT example.com:443 HTTP/1.1\\r\\nHost: example.com:443\\r\\n\\r\\n" | nc 127.0.0.1 {port}',
+        f'(printf "CONNECT example.com:443 HTTP/1.1\\r\\nHost: example.com:443\\r\\n\\r\\n"; sleep 2) | nc 127.0.0.1 {port}',
         timeout=30,
     )
     return r.ok and "200" in r.out

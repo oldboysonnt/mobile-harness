@@ -63,7 +63,7 @@ def install_system_ca(der: bytes, adb) -> str:
     base = "/data/local/tmp/mph-cacerts"
     cmds = (
         f"rm -rf {base} && mkdir -p {base}",
-        f"cp /system/etc/security/cacerts/. {base}/",
+        f"cp /system/etc/security/cacerts/* {base}/",
     )
     for c in cmds:
         r = adb.run("shell", c, timeout=60)
