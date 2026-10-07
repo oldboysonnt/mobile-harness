@@ -48,23 +48,44 @@ def pem_and_name(der: bytes) -> tuple[str, str]:
 
 
 def install_system_ca(der: bytes, adb) -> str:
-    """adb root + remount, đẩy CA vào /system/etc/security/cacerts; idempotent."""
+    """Cài CA vào system trust store qua bind-mount tmpfs (API 33/34).
+
+    /system bị verity khóa (bootloader locked) → copy cacerts sang
+    /data/local/tmp, thêm CA của Burp, rồi `mount --bind` đè lên.
+    Hiệu lực đến khi reboot (P2 thay bằng Magisk module bền vững).
+    """
     pem, name = pem_and_name(der)
-    for args, hint in (
-        (("root",), "image google_apis moi cho phep adb root"),
-        (("remount",), "thu: adb disable-verity && adb reboot && remount"),
-    ):
-        r = adb.run(*args, timeout=60)  # root/remount là lệnh device-scoped
+    r = adb.run("root", timeout=60)
+    if not r.ok:
+        raise HarnessError(
+            "adb root that bai", hint=f"image google_apis moi cho phep adb root | {r.err}"
+        )
+    base = "/data/local/tmp/mph-cacerts"
+    cmds = (
+        f"rm -rf {base} && mkdir -p {base}",
+        f"cp /system/etc/security/cacerts/. {base}/",
+    )
+    for c in cmds:
+        r = adb.run("shell", c, timeout=60)
         if not r.ok:
-            raise HarnessError(f"adb {args[0]} that bai", hint=f"{hint} | {r.err}")
+            raise HarnessError(f"shell that bai: {c}", hint=r.err)
     with tempfile.NamedTemporaryFile(
         "w", suffix=".0", delete=False, encoding="ascii"
     ) as f:
         f.write(pem)
         local = Path(f.name)
-    remote = f"/system/etc/security/cacerts/{name}"
+    remote = f"{base}/{name}"
     push = adb.run("push", str(local), remote, timeout=60)
     if not push.ok:
         raise HarnessError("push CA that bai", hint=push.err)
-    adb.run("shell", "chmod", "644", remote)
+    fix = (
+        f"chmod 644 {remote} && chown root:root {remote}",
+        f"chcon u:object_r:system_security_cacerts_file:s0 {base} 2>/dev/null; "
+        f"chcon u:object_r:system_file:s0 {remote}",
+        f"mount --bind {base} /system/etc/security/cacerts",
+    )
+    for c in fix:
+        r = adb.run("shell", c, timeout=60)
+        if not r.ok and "mount" in c:
+            raise HarnessError("bind-mount that bai", hint=r.err)
     return name

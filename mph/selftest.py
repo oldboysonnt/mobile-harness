@@ -4,7 +4,6 @@ Ruling (2026-10-07): image API 34 không có curl/wget (toybox chỉ có nc) —
 oracle tách 3 mảnh: (a) nc CONNECT từ device chứng minh routing,
 (b) host curl --cacert chứng minh CA + intercept TLS, (c) curl device nếu có.
 """
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -38,16 +37,22 @@ def _device_route_probe(adb: Adb, port: int) -> bool:
 
 
 def _host_verify(pem_path: Path, port: int) -> tuple[str, str]:
-    """Host-side: HTTPS qua Burp với CA vừa cài — chứng minh CA + intercept."""
+    """Host-side: HTTPS qua Burp với CA vừa cài (stdlib, không lệch curl build)."""
+    import http.client
+    import ssl
+
+    ctx = ssl.create_default_context(cafile=str(pem_path))
+    conn = http.client.HTTPSConnection("127.0.0.1", port, context=ctx, timeout=30)
     try:
-        p = subprocess.run(
-            ["curl", "-s", "-x", f"http://127.0.0.1:{port}", "--cacert", str(pem_path),
-             "-o", "NUL", "-w", "%{http_code}", "https://example.com"],
-            capture_output=True, text=True, timeout=60,
-        )
-        return p.stdout.strip() or "000", p.stderr.strip()
-    except OSError as e:
+        conn.set_tunnel("example.com", 443)
+        conn.request("GET", "/", headers={"Host": "example.com"})
+        resp = conn.getresponse()
+        resp.read()
+        return str(resp.status), ""
+    except (OSError, ssl.SSLError) as e:
         return "000", str(e)
+    finally:
+        conn.close()
 
 
 def _adb_root(adb: Adb) -> Adb:

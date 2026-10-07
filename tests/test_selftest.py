@@ -44,8 +44,8 @@ def test_p1_fails_when_no_route(tmp_path):
         device_route_probe = staticmethod(lambda adb, port: False)
     ok, rows = run_p1(FakeCfg(tmp_path), deps=DepsNoRoute)
     assert ok is False
-    last = rows[-1]
-    assert last[0] == "device-route" and last[1] is False
+    row = next(r for r in rows if r[0] == "device-route")
+    assert row[1] is False
 
 def test_p1_fails_when_host_ca_verify_fails(tmp_path):
     class DepsBadCA(DepsFail):
