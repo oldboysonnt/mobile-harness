@@ -29,6 +29,8 @@ engine           = "stock"   # stock = frida chính chủ + rename alias (strong
 client_ver       = "auto"    # auto = lấy theo pip frida đang cài
 server_url_tpl   = 'https://github.com/frida/frida/releases/download/{ver}/frida-server-{ver}-android-x86_64.xz'
 alias            = "sysmondd"
+# 27042 = frida default (client -U phụ thuộc); đổi thì phải dùng forward+-H (P4)
+port             = 27042
 
 [vendor]
 spic_slug   = "herzhenr/spic-android"

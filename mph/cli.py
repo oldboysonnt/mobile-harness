@@ -202,7 +202,7 @@ def frida_start_cmd() -> None:
         raise typer.Exit(code=1)
     paths = vendor_all(cfg)
     remote = frida_server_start(Adb(serial=serial), paths["frida-server"],
-                                alias=cfg.frida_alias)
+                                alias=cfg.frida_alias, port=cfg.frida_port)
     print(f"frida server: {remote}")
 
 

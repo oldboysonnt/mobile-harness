@@ -50,6 +50,7 @@ class Config:
     frida_engine: str = "stock"
     frida_client_ver: str = "auto"
     frida_alias: str = "sysmondd"
+    frida_port: int = 27042
     spic_slug: str = "herzhenr/spic-android"
     rootavd_url: str = (
         "https://gitlab.com/newbit/rootAVD/-/archive/master/rootAVD-master.tar.gz"
@@ -109,6 +110,7 @@ def load_config(path: Path | None = None) -> Config:
         frida_engine=str(frida.get("engine", "stock")),
         frida_client_ver=str(frida.get("client_ver", "auto")),
         frida_alias=str(frida.get("alias", "sysmondd")),
+        frida_port=int(frida.get("port", 27042)),
         spic_slug=str(vendor.get("spic_slug", "herzhenr/spic-android")),
         rootavd_url=str(vendor.get(
             "rootavd_url",

@@ -200,7 +200,8 @@ def run_p2(cfg, deps: "Deps | None" = None) -> tuple[bool, list]:
 
     try:
         code, out = d.unpin_smoke(adb, cfg)
-        rows.append(("unpin-smoke", True, f"exit={code} {out[:120]}"))
+        rows.append(("unpin-smoke", code == 0,
+                     f"exit={code} {out[:120]}"))
     except Exception as e:  # noqa: BLE001
         rows.append(("unpin-smoke", False, str(e)[:300]))
 

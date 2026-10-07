@@ -52,15 +52,18 @@ def frida_start(adb, strongr_xz: Path, alias: str = "sysmondd",
                            Path(tools_dir) if tools_dir
                            else Path(strongr_xz).parent)
     remote = f"/data/local/tmp/{alias}"
+    adb.su(f"pkill -f {alias} 2>/dev/null")  # idempotent: sạch instance cũ (ETXTBSY)
+    import time as _t; _t.sleep(0.5)
     p = adb.run("push", str(local), remote)
     if not p.ok:
         raise HarnessError("push frida-server that bai", hint=p.err)
     adb.run("shell", "chmod", "755", remote)
     adb.su(f"{remote} -l 127.0.0.1:{port} >/dev/null 2>&1 &")
     if not _wait_frida_ps(adb):
+        adb.su(f"pkill -f {alias} 2>/dev/null")  # dọn process lỗi
         raise HarnessError(
             "frida-server khong phan hoi sau 10s",
-            hint="kiem tra strongr version khop pip frida, xem adb logcat")
+            hint="kiem tra frida-server version khop pip frida, xem logcat")
     return remote
 
 
