@@ -30,7 +30,7 @@ def test_jadx_nonzero_but_sources_ok(tmp_path):
     assert got == out
 
 def test_jadx_hard_fail_raises(tmp_path):
-    out = tmp / "jadx-out"
+    out = tmp_path / "jadx-out"
     out.mkdir()
     with pytest.raises(HarnessError):
         decompile(tmp_path / "a.apk", out, runner=lambda c, timeout=None:
