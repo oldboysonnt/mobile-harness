@@ -40,12 +40,12 @@ def test_root_and_frida_sections(tmp_path, monkeypatch):
     monkeypatch.delenv("BURP_PATH", raising=False)
     cfg = load_config(tmp_path / "nonexistent.toml")
     assert cfg.frida_alias == "sysmondd"
+    assert cfg.frida_engine == "stock"
     assert cfg.tools_dir.name == "tools"
     assert cfg.fingerprints_dir.name == "fingerprints"
-    assert "topjohnwu/Magisk" in cfg.magisk_url
-    assert "LSPosed/LSPosed.github.io" in cfg.shamiko_url
-    assert "chiteroman/PlayIntegrityFork" in cfg.pif_slugs
-    assert "jyotidwi/PlayIntegrityFix" in cfg.pif_slugs
-    assert "CrackerCat/strongR-frida-android" in cfg.strongr_url_tpl
-    assert "herzhenr/spic-android" in cfg.spic_url
+    assert cfg.magisk_slug == "topjohnwu/Magisk"
+    assert cfg.shamiko_slug == "LSPosed/LSPosed.github.io"
+    assert cfg.pif_slugs[0] == "osm0sis/PlayIntegrityFork"
+    assert "frida/frida/releases" in cfg.frida_server_url_tpl
+    assert cfg.spic_slug == "herzhenr/spic-android"
     assert "newbit/rootAVD" in cfg.rootavd_url

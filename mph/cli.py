@@ -193,7 +193,7 @@ def frida_start_cmd() -> None:
         print("khong co emulator — chay mph setup run")
         raise typer.Exit(code=1)
     paths = vendor_all(cfg)
-    remote = frida_server_start(Adb(serial=serial), paths["strongr"],
+    remote = frida_server_start(Adb(serial=serial), paths["frida-server"],
                                 alias=cfg.frida_alias)
     print(f"frida server: {remote}")
 

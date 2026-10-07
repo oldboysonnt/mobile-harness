@@ -17,7 +17,8 @@ def sanitize_alias(alias: str) -> str:
 
 
 def unpack_strongr(xz_path: Path, out_dir: Path) -> Path:
-    out = Path(out_dir) / "strongr-bin"
+    """Giải nén frida-server .xz (tên giữ từ thời strongR — engine-agnostic)."""
+    out = Path(out_dir) / "frida-server-bin"
     if out.exists():
         return out
     Path(out_dir).mkdir(parents=True, exist_ok=True)

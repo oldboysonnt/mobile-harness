@@ -31,8 +31,8 @@ def _default_fj(url: str):
         return json.loads(r.read())
 
 
-def resolve_latest(slugs, fetch_json=None) -> tuple[str, str]:
-    """Thử lần lượt các repo; trả (slug, asset_zip_url) cái đầu có release."""
+def resolve_latest(slugs, fetch_json=None, suffix: str = ".zip") -> tuple[str, str]:
+    """Thử lần lượt các repo; trả (slug, asset_url) cái đầu có release khớp suffix."""
     fj = fetch_json or _default_fj
     tried = []
     for slug in slugs:
@@ -42,10 +42,10 @@ def resolve_latest(slugs, fetch_json=None) -> tuple[str, str]:
         except OSError:
             continue
         for a in assets if isinstance(assets, list) else []:
-            if str(a.get("name", "")).endswith(".zip"):
+            if str(a.get("name", "")).endswith(suffix):
                 return slug, a["browser_download_url"]
-    raise HarnessError("khong resolve duoc PIF release",
-                        hint=f"da thu: {', '.join(tried)}")
+    raise HarnessError("khong resolve duoc release",
+                        hint=f"da thu: {', '.join(tried)} (suffix {suffix})")
 
 
 def untar(src: Path, dest: Path) -> None:
@@ -56,17 +56,27 @@ def untar(src: Path, dest: Path) -> None:
         raise HarnessError(f"giai nen that bai: {Path(src).name}", hint=r.stderr)
 
 
+def _frida_ver(cfg) -> str:
+    if cfg.frida_client_ver != "auto":
+        return cfg.frida_client_ver
+    import frida  # pip frida đã cài — server phải khớp version client
+    return frida.__version__
+
+
 def vendor_all(cfg, fetch=None, fetch_json=None) -> dict:
     """Đảm bảo mọi artifact tồn tại trong tools/; trả map tên → đường dẫn."""
     tools = Path(cfg.tools_dir)
     got: dict[str, Path] = {}
-    got["magisk"] = download(cfg.magisk_url, tools / "magisk.apk", fetch)
-    got["shamiko"] = download(cfg.shamiko_url, tools / "shamiko.zip", fetch)
-    _slug, asset = resolve_latest(cfg.pif_slugs, fetch_json)
-    got["pif"] = download(asset, tools / "pif.zip", fetch)
-    surl = cfg.strongr_url_tpl.format(ver=cfg.frida_client_ver)
-    got["strongr"] = download(surl, tools / "strongr.xz", fetch)
-    got["spic"] = download(cfg.spic_url, tools / "spic.apk", fetch)
+    _s, a_magisk = resolve_latest([cfg.magisk_slug], fetch_json, ".apk")
+    got["magisk"] = download(a_magisk, tools / "magisk.apk", fetch)
+    _s, a_shamiko = resolve_latest([cfg.shamiko_slug], fetch_json, ".zip")
+    got["shamiko"] = download(a_shamiko, tools / "shamiko.zip", fetch)
+    _slug, a_pif = resolve_latest(cfg.pif_slugs, fetch_json, ".zip")
+    got["pif"] = download(a_pif, tools / "pif.zip", fetch)
+    furl = cfg.frida_server_url_tpl.format(ver=_frida_ver(cfg))
+    got["frida-server"] = download(furl, tools / "frida-server.xz", fetch)
+    _s, a_spic = resolve_latest([cfg.spic_slug], fetch_json, ".apk")
+    got["spic"] = download(a_spic, tools / "spic.apk", fetch)
     ra_dir = tools / "rootavd"
     if not (ra_dir / "rootAVD.sh").exists():
         tgz = download(cfg.rootavd_url, tools / "rootavd.tar.gz", fetch)

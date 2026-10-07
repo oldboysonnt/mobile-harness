@@ -90,7 +90,7 @@ class Deps:
     @staticmethod
     def _frida_start_default(adb, cfg):
         return frida_server.frida_start(
-            adb, Path(cfg.tools_dir) / "strongr.xz", alias=cfg.frida_alias)
+            adb, Path(cfg.tools_dir) / "frida-server.xz", alias=cfg.frida_alias)
 
     frida_start = staticmethod(_frida_start_default)
     frida_health = staticmethod(

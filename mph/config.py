@@ -36,25 +36,21 @@ class Config:
     proxy_port: int
     burp_mcp_port: int
     workspace: Path
-    magisk_url: str = (
-        "https://github.com/topjohnwu/Magisk/releases/latest/download/Magisk-v29.4.apk"
-    )
-    shamiko_url: str = (
-        "https://github.com/LSPosed/LSPosed.github.io/releases/latest/download/Shamiko-v0.7.6-219.zip"
-    )
+    magisk_slug: str = "topjohnwu/Magisk"
+    shamiko_slug: str = "LSPosed/LSPosed.github.io"
     pif_slugs: tuple = (
+        "osm0sis/PlayIntegrityFork",
         "chiteroman/PlayIntegrityFork",
         "jyotidwi/PlayIntegrityFix",
-        "osm0sis/PlayIntegrityFork",
     )
-    strongr_url_tpl: str = (
-        "https://github.com/CrackerCat/strongR-frida-android/releases/download/{ver}/hluda-server-{ver}-android-x86_64.xz"
+    frida_server_url_tpl: str = (
+        "https://github.com/frida/frida/releases/download/{ver}/"
+        "frida-server-{ver}-android-x86_64.xz"
     )
-    frida_client_ver: str = "16.7.19"
+    frida_engine: str = "stock"
+    frida_client_ver: str = "auto"
     frida_alias: str = "sysmondd"
-    spic_url: str = (
-        "https://github.com/herzhenr/spic-android/releases/latest/download/app-release.apk"
-    )
+    spic_slug: str = "herzhenr/spic-android"
     rootavd_url: str = (
         "https://gitlab.com/newbit/rootAVD/-/archive/master/rootAVD-master.tar.gz"
     )
@@ -98,29 +94,22 @@ def load_config(path: Path | None = None) -> Config:
         proxy_port=int(px.get("port", 8080)),
         burp_mcp_port=int(px.get("burp_mcp_port", 9876)),
         workspace=_REPO_ROOT / data.get("workspace", {}).get("root", "workspace"),
-        magisk_url=str(root.get(
-            "magisk_url",
-            "https://github.com/topjohnwu/Magisk/releases/latest/download/Magisk-v29.4.apk",
-        )),
-        shamiko_url=str(root.get(
-            "shamiko_url",
-            "https://github.com/LSPosed/LSPosed.github.io/releases/latest/download/Shamiko-v0.7.6-219.zip",
-        )),
+        magisk_slug=str(root.get("magisk_slug", "topjohnwu/Magisk")),
+        shamiko_slug=str(root.get("shamiko_slug", "LSPosed/LSPosed.github.io")),
         pif_slugs=tuple(root.get("pif_slugs", [
+            "osm0sis/PlayIntegrityFork",
             "chiteroman/PlayIntegrityFork",
             "jyotidwi/PlayIntegrityFix",
-            "osm0sis/PlayIntegrityFork",
         ])),
-        strongr_url_tpl=str(frida.get(
-            "strongr_url_tpl",
-            "https://github.com/CrackerCat/strongR-frida-android/releases/download/{ver}/hluda-server-{ver}-android-x86_64.xz",
+        frida_server_url_tpl=str(frida.get(
+            "server_url_tpl",
+            "https://github.com/frida/frida/releases/download/{ver}/"
+            "frida-server-{ver}-android-x86_64.xz",
         )),
-        frida_client_ver=str(frida.get("client_ver", "16.7.19")),
+        frida_engine=str(frida.get("engine", "stock")),
+        frida_client_ver=str(frida.get("client_ver", "auto")),
         frida_alias=str(frida.get("alias", "sysmondd")),
-        spic_url=str(vendor.get(
-            "spic_url",
-            "https://github.com/herzhenr/spic-android/releases/latest/download/app-release.apk",
-        )),
+        spic_slug=str(vendor.get("spic_slug", "herzhenr/spic-android")),
         rootavd_url=str(vendor.get(
             "rootavd_url",
             "https://gitlab.com/newbit/rootAVD/-/archive/master/rootAVD-master.tar.gz",

@@ -55,17 +55,31 @@ def test_untar_creates_nested(tmp_path):
 
 def test_vendor_all_returns_expected_keys(tmp_path):
     class FakeCfg:
-        magisk_url = "u1"; shamiko_url = "u2"
-        pif_slugs = ("r/x",); spic_url = "u4"; rootavd_url = "u5"
-        strongr_url_tpl = "https://s/{ver}/hluda.xz"; frida_client_ver = "1.2.3"
+        magisk_slug = "topjohnwu/Magisk"
+        shamiko_slug = "LSPosed/LSPosed.github.io"
+        pif_slugs = ("osm0sis/PlayIntegrityFork",)
+        spic_slug = "herzhenr/spic-android"
+        rootavd_url = "u5"
+        frida_server_url_tpl = "https://g/{ver}/frida-server.xz"
+        frida_client_ver = "1.2.3"
         tools_dir = tmp_path / "tools"; fingerprints_dir = tmp_path / "fp"
     def fetch(url, d):
         if url == "u5":
             _make_rootavd_tar(Path(d))
         else:
             _write_bytes(d, b"data")
-    def fj(url): return [{"browser_download_url": "u3", "name": "pif.zip"}]
+    def fj(url):
+        out = []
+        if "Magisk" in url:
+            out = [{"browser_download_url": "u1", "name": "Magisk-v9.apk"}]
+        elif "LSPosed" in url:
+            out = [{"browser_download_url": "u2", "name": "Shamiko.zip"}]
+        elif "spic" in url:
+            out = [{"browser_download_url": "u4", "name": "spic.apk"}]
+        else:
+            out = [{"browser_download_url": "u3", "name": "pif.zip"}]
+        return out
     got = vendor_all(FakeCfg(), fetch=fetch, fetch_json=fj)
-    assert set(got) == {"magisk", "shamiko", "pif", "strongr", "spic", "rootavd"}
-    assert (tmp_path / "tools" / "strongr.xz").exists()
+    assert set(got) == {"magisk", "shamiko", "pif", "frida-server", "spic", "rootavd"}
+    assert (tmp_path / "tools" / "frida-server.xz").exists()
     assert (tmp_path / "tools" / "rootavd" / "rootAVD.sh").exists()
