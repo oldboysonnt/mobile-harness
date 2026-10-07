@@ -64,7 +64,6 @@ def test_fetch_der_retries_transient_reset(monkeypatch):
     def flaky(url, timeout=None):
         attempts.append(url)
         if len(attempts) < 3:  # Burp warm-up: port mở nhưng reset vài request đầu
-            import OSError as _E  # noqa: F401
             raise ConnectionResetError(10054, "reset")
         return FakeResp()
 
