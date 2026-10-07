@@ -98,11 +98,12 @@ class Deps:
     frida_start = staticmethod(_frida_start_default)
     frida_health = staticmethod(
         lambda adb: frida_server._wait_frida_ps(adb, tries=3, delay=1.0))
-    unpin_smoke = staticmethod(
-        lambda adb, cfg: frida_scripts.run_unpin("com.android.chrome", None,
-                                                 timeout=60))
+    @staticmethod
+    def _unpin_smoke_default(adb, cfg):
+        adb.run("shell", "am", "force-stop", "com.android.chrome")
+        return frida_scripts.run_unpin("com.android.chrome", None, timeout=90)
+    unpin_smoke = staticmethod(_unpin_smoke_default)
     pull_apk = staticmethod(apks_mod.pull_apk)
-    decompile = staticmethod(lambda apk, out: jadx_mod_decompile(apk, out))
     parse_manifest = staticmethod(manifest_mod.parse_manifest)
     ensure_indexed = staticmethod(lambda cfg, out: index_ensure(cfg, out))
 
@@ -246,7 +247,9 @@ def run_p3(cfg, deps: "Deps | None" = None) -> tuple[bool, list]:
         rows.append(("pull", True, "skipped (co san)"))
     jadx_out = ws / "jadx-out"
     if not (jadx_out / "sources").exists():
-        if not _step_row(rows, "jadx", lambda: d.decompile(apk, jadx_out)):
+        dec = getattr(d, "decompile", None) or (
+            lambda a, o: jadx_mod_decompile(a, o, cfg.jadx_bin))
+        if not _step_row(rows, "jadx", lambda: dec(apk, jadx_out)):
             return False, rows
     else:
         rows.append(("jadx", True, "skipped (co san)"))
