@@ -38,3 +38,9 @@ def test_help_lists_re_groups():
     assert r.exit_code == 0
     for word in ("apks", "re"):
         assert word in r.output
+
+def test_help_lists_p4_groups():
+    r = runner.invoke(app, ["--help"])
+    assert r.exit_code == 0
+    for word in ("screen", "integrity"):
+        assert word in r.output

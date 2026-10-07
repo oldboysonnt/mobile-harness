@@ -9,12 +9,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .device import avd as avd_mod
+from .device import screen as screen_mod
 from .device.adb import Adb
 from .frida import server as frida_server
 from .frida import scripts as frida_scripts
 from .proxy import burp as burp_mod
 from .proxy import cert as cert_mod
 from .proxy import route as route_mod
+from .root import spic as spic_mod
 from .root.integrity import integrity_status
 from .re import apks as apks_mod, manifest as manifest_mod
 from .re.index import ensure_indexed as index_ensure
@@ -106,6 +108,19 @@ class Deps:
     pull_apk = staticmethod(apks_mod.pull_apk)
     parse_manifest = staticmethod(manifest_mod.parse_manifest)
     ensure_indexed = staticmethod(lambda cfg, out: index_ensure(cfg, out))
+    wm_size = staticmethod(screen_mod.wm_size)
+    screenshot = staticmethod(screen_mod.screenshot)
+    ui_dump = staticmethod(screen_mod.ui_dump)
+
+    @staticmethod
+    def _tap_smoke_default(adb):
+        screen_mod.key(adb, "3")  # HOME
+        w, h = screen_mod.wm_size(adb)
+        screen_mod.tap(adb, w // 2, h // 3)  # vùng trống trên home
+        return f"HOME+tap({w // 2},{h // 3})"
+
+    tap_smoke = staticmethod(_tap_smoke_default)
+    spic_check = staticmethod(spic_mod.integrity_check)
 
 
 def run_p1(cfg, deps: Deps | None = None) -> tuple[bool, list[tuple[str, bool, str]]]:
@@ -264,3 +279,26 @@ def run_p3(cfg, deps: "Deps | None" = None) -> tuple[bool, list]:
     if not _step_row(rows, "index", lambda: d.ensure_indexed(cfg, jadx_out)):
         return False, rows
     return p2_ok, rows
+
+
+def run_p4(cfg, deps: "Deps | None" = None) -> tuple[bool, list]:
+    """P4 = P3 + screen control (wm/screenshot/ui/tap) + SPIC verdict."""
+    d = deps or Deps()
+    p3_ok, rows = run_p3(cfg, deps=d)
+    serial = d.avd_serial()
+    adb = d.adb_factory(serial)
+    if not _step_row(rows, "wm-size", lambda: d.wm_size(adb)):
+        return False, rows
+    ws = Path(cfg.workspace) / "_shared" / "shots"
+    if not _step_row(rows, "screenshot",
+                     lambda: d.screenshot(adb, ws / "p4-smoke.png")):
+        return False, rows
+    if not _step_row(rows, "ui-dump",
+                     lambda: d.ui_dump(adb, ws.parent / "ui.xml")):
+        return False, rows
+    if not _step_row(rows, "tap-smoke", lambda: d.tap_smoke(adb)):
+        return False, rows
+    if not _step_row(rows, "spic-verdict",
+                     lambda: d.spic_check(adb, cfg).get("verdict", "ERR")):
+        return False, rows
+    return p3_ok, rows
