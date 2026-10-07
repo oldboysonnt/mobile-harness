@@ -61,6 +61,6 @@ def test_install_overwrites():
     n1 = install_system_ca(der, a)
     n2 = install_system_ca(der, a)
     assert n1 == n2 and len(a.calls) >= 8  # 2 lần × (root+remount+push+chmod)
-    pushed = [c for c in a.calls if c[:2] == ("push",)]
+    pushed = [c for c in a.calls if c[0] == "push"]
     assert len(pushed) == 2
     assert all(c[2].endswith(n1) for c in pushed)

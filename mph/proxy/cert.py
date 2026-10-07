@@ -15,8 +15,10 @@ from cryptography.hazmat.primitives import serialization
 from ..errors import HarnessError
 
 
-def fetch_der(port: int, opener=urllib.request.urlopen) -> bytes:
+def fetch_der(port: int, opener=None) -> bytes:
     """Tải DER CA từ endpoint /cert của proxy listener."""
+    if opener is None:
+        opener = urllib.request.urlopen
     try:
         with opener(f"http://127.0.0.1:{port}/cert", timeout=10) as r:
             return r.read()
