@@ -171,7 +171,7 @@ def run_p1(cfg, deps: Deps | None = None) -> tuple[bool, list[tuple[str, bool, s
 def run_p2(cfg, deps: "Deps | None" = None) -> tuple[bool, list]:
     """P2 = toàn bộ P1 + magisk + integrity stack + frida ẩn + unpin smoke."""
     d = deps or Deps()
-    p1_ok, rows = run_p1(cfg)
+    p1_ok, rows = run_p1(cfg, deps=d)  # chuyển deps xuống P1 (test/real)
     serial = d.avd_serial()
     adb = d.adb_factory(serial)
 

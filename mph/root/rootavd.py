@@ -40,7 +40,9 @@ def root_via_rootavd(cfg, rootavd_dir: Path, runner=None) -> bool:
                             hint=str(getattr(cfg, "image", "")))
     cmd = [git_bash.as_posix(), str(Path(rootavd_dir) / "rootAVD.sh"),
            f"system-images/{rel}/ramdisk.img"]
-    env = {**dict(os.environ), "ANDROID_HOME": sdk.as_posix()}
+    env = {**dict(os.environ), "ANDROID_HOME": sdk.as_posix(),
+           # Git Bash mangle /data/... thành C:/Program Files/Git/data/...
+           "MSYS_NO_PATHCONV": "1", "MSYS2_ARG_CONV_EXCL": "*"}
     code, out, err = (runner or _run)(cmd, env=env, timeout=900, cwd=str(sdk))
     if "All done" in out or "already" in out.lower():
         return True
