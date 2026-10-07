@@ -120,7 +120,12 @@ class Deps:
         return f"HOME+tap({w // 2},{h // 3})"
 
     tap_smoke = staticmethod(_tap_smoke_default)
-    spic_check = staticmethod(spic_mod.integrity_check)
+    @staticmethod
+    def _spic_check_default(adb, cfg):
+        from pathlib import Path as _P
+        return spic_mod.integrity_check(
+            adb, cfg, _P(cfg.workspace) / "_shared" / "spic")
+    spic_check = staticmethod(_spic_check_default)
 
 
 def run_p1(cfg, deps: Deps | None = None) -> tuple[bool, list[tuple[str, bool, str]]]:
