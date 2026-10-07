@@ -120,7 +120,10 @@ def run_p1(cfg, deps: Deps | None = None) -> tuple[bool, list[tuple[str, bool, s
     rows.append(("device-route", route_ok, "CONNECT qua proxy" if route_ok else "nc CONNECT khong thay 200"))
 
     dcode, derr = d.device_https_probe(adb, cfg.proxy_port)
-    rows.append(("https-probe", dcode == "200", f"code={dcode} {derr}".strip()))
+    if dcode == "nocurl":
+        rows.append(("https-probe", True, "skipped (image khong co curl) — da chung minh bang nc + ca-host"))
+    else:
+        rows.append(("https-probe", dcode == "200", f"code={dcode} {derr}".strip()))
 
     ok = ca_ok and route_ok and (dcode == "200" or dcode == "nocurl")
     return ok, rows
