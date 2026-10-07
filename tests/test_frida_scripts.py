@@ -18,3 +18,12 @@ def test_run_unpin_invokes_runner():
 
     code, out = run_unpin("com.x", Path("s.js"), runner=runner)
     assert (code, out) == (0, "ok") and calls[0][0] == "frida"
+
+def test_run_unpin_timeout_is_success():
+    import subprocess
+
+    def runner(cmd, timeout=None):
+        raise subprocess.TimeoutExpired(cmd, timeout)
+
+    code, out = run_unpin("com.x", Path("s.js"), runner=runner)
+    assert code == 0 and "session held" in out

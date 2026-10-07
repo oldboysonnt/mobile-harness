@@ -96,7 +96,8 @@ class Deps:
     frida_health = staticmethod(
         lambda adb: frida_server._wait_frida_ps(adb, tries=3, delay=1.0))
     unpin_smoke = staticmethod(
-        lambda adb, cfg: frida_scripts.run_unpin("com.android.chrome", None))
+        lambda adb, cfg: frida_scripts.run_unpin("com.android.chrome", None,
+                                                 timeout=60))
 
 
 def run_p1(cfg, deps: Deps | None = None) -> tuple[bool, list[tuple[str, bool, str]]]:

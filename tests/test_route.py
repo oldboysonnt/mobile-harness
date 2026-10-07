@@ -12,6 +12,7 @@ class FakeAdb:
 
 def test_proxy_on_sets_reverse_and_global():
     a = FakeAdb(); proxy_on(a, 8080)
+    assert ("reverse", "--remove tcp:8080") in a.calls  # re-add đề phòng rule chết
     assert ("reverse", "tcp:8080", "tcp:8080") in a.calls
     assert any("http_proxy" in " ".join(c) and "127.0.0.1:8080" in " ".join(c) for c in a.calls)
 

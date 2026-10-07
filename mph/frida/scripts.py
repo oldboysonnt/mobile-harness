@@ -13,16 +13,24 @@ def ensure_scripts() -> dict:
 
 
 def unpin_cmd(package: str, script: Path) -> list:
-    return ["frida", "-U", "-f", package, "-l", str(script), "--no-pause"]
+    # frida 17 CLI đã bỏ --no-pause (spawn tự resume khi có script)
+    return ["frida", "-U", "-f", package, "-l", str(script)]
 
 
-def run_unpin(package: str, script: Path | None, runner=None) -> tuple:
+def run_unpin(package: str, script: Path | None, runner=None,
+              timeout: int = 300) -> tuple:
+    """Spawn-attach script vào package. frida CLI giữ session (REPL) sau khi
+    script chạy — timeout được coi là thành công bình thường, không lỗi."""
     if script is None:
         scripts = ensure_scripts()
         if "unpin" not in scripts:
             raise HarnessError("khong thay scripts/frida/unpin.js",
                                 hint="vendor unpin.js vao scripts/frida/")
         script = scripts["unpin"]
-    r = (runner or subprocess.run)(unpin_cmd(package, script), timeout=300)
+    try:
+        r = (runner or subprocess.run)(unpin_cmd(package, script),
+                                       timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return 0, "session held (frida CLI giữ REPL — bình thường)"
     code, out = (r.returncode, r.stdout) if hasattr(r, "returncode") else r
     return code, out or ""
