@@ -6,6 +6,8 @@ def test_vendor_clones_once(tmp_path):
 
     def runner(cmd, timeout=None):
         calls.append(cmd)
+        (tmp_path / "BrutDroid").mkdir(parents=True, exist_ok=True)
+        (tmp_path / "BrutDroid" / "BrutDroid.py").write_text("# stub")
         return type("R", (), {"returncode": 0})()
 
     class FakeRevParse:
