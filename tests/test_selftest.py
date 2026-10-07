@@ -73,3 +73,38 @@ def test_p1_green_with_device_curl(tmp_path):
             return "200", ""
     ok, rows = run_p1(FakeCfg(tmp_path), deps=DepsCurl)
     assert ok is True
+
+def test_p1_boot_false_fails(tmp_path):
+    class DepsBootTimeout(DepsFail):
+        wait_booted = staticmethod(lambda *a, **k: False)
+    ok, rows = run_p1(FakeCfg(tmp_path), deps=DepsBootTimeout)
+    assert ok is False
+    row = next(r for r in rows if r[0] == "boot")
+    assert row[1] is False  # không được coerce False thành "ok"
+
+def test_p1_ca_failure_stays_red(tmp_path):
+    class DepsBadCA(DepsFail):
+        @staticmethod
+        def install_system_ca(der, adb):
+            raise RuntimeError("bind-mount that bai")
+    ok, rows = run_p1(FakeCfg(tmp_path), deps=DepsBadCA)
+    assert ok is False  # dù host-verify 200 + nocurl
+
+def test_p1_fetch_der_failure_structured(tmp_path):
+    from mph.errors import HarnessError
+    class DepsNoFetch(DepsFail):
+        @staticmethod
+        def fetch_der(port):
+            raise HarnessError("khong tai duoc CA")
+    ok, rows = run_p1(FakeCfg(tmp_path), deps=DepsNoFetch)  # không raise ra ngoài
+    assert ok is False
+    assert any(r[0] == "ca" and r[1] is False for r in rows)
+
+def test_p1_corrupt_der_structured(tmp_path):
+    class DepsJunk(DepsFail):
+        @staticmethod
+        def fetch_der(port):
+            return b"khong phai cert"
+    ok, rows = run_p1(FakeCfg(tmp_path), deps=DepsJunk)  # ValueError bị bắt
+    assert ok is False
+    assert any(r[0] == "ca" and r[1] is False for r in rows)

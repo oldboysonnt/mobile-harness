@@ -82,18 +82,20 @@ class Deps:
 
 
 def run_p1(cfg, deps: Deps | None = None) -> tuple[bool, list[tuple[str, bool, str]]]:
-    """Chạy chuỗi bước P1; trả (ok, [(tên, ok, chi tiết)])."""
+    """Chạy chuỗi bước P1; ok chỉ True khi MỌI bước then chốt xanh."""
     d = deps or Deps()
     rows: list[tuple[str, bool, str]] = []
 
     def step(name, fn, *a):
         try:
-            detail = fn(*a) or "ok"
-            rows.append((name, True, str(detail)))
-            return True
+            detail = fn(*a)
         except Exception as e:  # noqa: BLE001 — selftest tổng hợp mọi lỗi
-            rows.append((name, False, str(e)))
+            rows.append((name, False, str(e)[:300]))
             return False
+        ok = detail is not False  # None = side-effect ok; False = fail tường minh
+        rows.append((name, ok, "ok" if detail is None or detail is True
+                     else str(detail)[:300]))
+        return ok
 
     serial = d.avd_serial()
     if not serial or not step("boot", d.wait_booted, serial, d.adb_factory(serial)):
@@ -110,26 +112,39 @@ def run_p1(cfg, deps: Deps | None = None) -> tuple[bool, list[tuple[str, bool, s
         ws / "_shared" / "burp" / "main.json",
     ):
         return False, rows
-    der = d.fetch_der(cfg.proxy_port)
-    step("ca", d.install_system_ca, der, adb)
 
-    pem, name = cert_mod.pem_and_name(der)
-    pem_path = ws / "_shared" / "burp-ca" / name
-    pem_path.parent.mkdir(parents=True, exist_ok=True)
-    pem_path.write_text(pem, encoding="ascii")
-    code, err = d.host_verify(pem_path, cfg.proxy_port)
-    ca_ok = code == "200"
-    rows.append(("ca-host", ca_ok, f"code={code} {err}".strip()))
+    def _do_ca():
+        der = d.fetch_der(cfg.proxy_port)
+        pem, name = cert_mod.pem_and_name(der)
+        pem_path = ws / "_shared" / "burp-ca" / name
+        pem_path.parent.mkdir(parents=True, exist_ok=True)
+        pem_path.write_text(pem, encoding="ascii")
+        return d.install_system_ca(der, adb)
 
-    step("proxy-on", d.proxy_on, adb, cfg.proxy_port)
+    if not step("ca", _do_ca):
+        return False, rows
+    pem_files = sorted((ws / "_shared" / "burp-ca").glob("*.0"))
+    code, err = d.host_verify(pem_files[-1], cfg.proxy_port)
+    ca_host_ok = code == "200"
+    rows.append(("ca-host", ca_host_ok, f"code={code} {err}".strip()[:300]))
+    if not ca_host_ok:
+        return False, rows
+
+    proxy_ok = step("proxy-on", d.proxy_on, adb, cfg.proxy_port)
+    if not proxy_ok:
+        return False, rows
     route_ok = d.device_route_probe(adb, cfg.proxy_port)
-    rows.append(("device-route", route_ok, "CONNECT qua proxy" if route_ok else "nc CONNECT khong thay 200"))
+    rows.append(("device-route", route_ok,
+                 "CONNECT qua proxy" if route_ok else "nc CONNECT khong thay 200"))
+    if not route_ok:
+        return False, rows
 
     dcode, derr = d.device_https_probe(adb, cfg.proxy_port)
     if dcode == "nocurl":
-        rows.append(("https-probe", True, "skipped (image khong co curl) — da chung minh bang nc + ca-host"))
+        rows.append(("https-probe", True,
+                     "skipped (image khong co curl) — da chung minh bang nc + ca-host"))
+        probe_ok = True
     else:
-        rows.append(("https-probe", dcode == "200", f"code={dcode} {derr}".strip()))
-
-    ok = ca_ok and route_ok and (dcode == "200" or dcode == "nocurl")
-    return ok, rows
+        probe_ok = dcode == "200"
+        rows.append(("https-probe", probe_ok, f"code={dcode} {derr}".strip()[:300]))
+    return probe_ok, rows
