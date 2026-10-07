@@ -36,16 +36,30 @@ class Config:
     proxy_port: int
     burp_mcp_port: int
     workspace: Path
-    magisk_url: str
-    shamiko_url: str
-    pif_slugs: list[str]
-    strongr_url_tpl: str
-    frida_client_ver: str
-    frida_alias: str
-    spic_url: str
-    rootavd_url: str
-    tools_dir: Path
-    fingerprints_dir: Path
+    magisk_url: str = (
+        "https://github.com/topjohnwu/Magisk/releases/latest/download/Magisk-v29.4.apk"
+    )
+    shamiko_url: str = (
+        "https://github.com/LSPosed/LSPosed.github.io/releases/latest/download/Shamiko-v0.7.6-219.zip"
+    )
+    pif_slugs: tuple = (
+        "chiteroman/PlayIntegrityFork",
+        "jyotidwi/PlayIntegrityFix",
+        "osm0sis/PlayIntegrityFork",
+    )
+    strongr_url_tpl: str = (
+        "https://github.com/CrackerCat/strongR-frida-android/releases/download/{ver}/hluda-server-{ver}-android-x86_64.xz"
+    )
+    frida_client_ver: str = "16.7.19"
+    frida_alias: str = "sysmondd"
+    spic_url: str = (
+        "https://github.com/herzhenr/spic-android/releases/latest/download/app-release.apk"
+    )
+    rootavd_url: str = (
+        "https://gitlab.com/newbit/rootAVD/-/archive/master/rootAVD-master.tar.gz"
+    )
+    tools_dir: Path = _REPO_ROOT / "tools"
+    fingerprints_dir: Path = _REPO_ROOT / "fingerprints"
 
 
 def _resolve_burp() -> Path | None:
@@ -92,7 +106,7 @@ def load_config(path: Path | None = None) -> Config:
             "shamiko_url",
             "https://github.com/LSPosed/LSPosed.github.io/releases/latest/download/Shamiko-v0.7.6-219.zip",
         )),
-        pif_slugs=list(root.get("pif_slugs", [
+        pif_slugs=tuple(root.get("pif_slugs", [
             "chiteroman/PlayIntegrityFork",
             "jyotidwi/PlayIntegrityFix",
             "osm0sis/PlayIntegrityFork",
