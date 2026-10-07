@@ -40,9 +40,14 @@ def fetch_der(port: int, opener=None) -> bytes:
 
 def pem_and_name(der: bytes) -> tuple[str, str]:
     """Trả (PEM, '<subject_hash>.0') cho cert DER."""
-    cert = x509.load_der_x509_certificate(der)
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")  # cryptography kén tính dài NameAttribute
+        cert = x509.load_der_x509_certificate(der)
+        subj = cert.subject.public_bytes()
     pem = cert.public_bytes(serialization.Encoding.PEM).decode("ascii")
-    h = hashlib.md5(cert.subject.public_bytes()).digest()[:4]
+    h = hashlib.md5(subj).digest()[:4]
     name = f"{struct.unpack('<I', h)[0]:08x}.0"
     return pem, name
 
