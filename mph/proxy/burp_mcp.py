@@ -23,28 +23,34 @@ class BurpMcp:
         threading.Thread(target=self._sse_reader, daemon=True).start()
 
     def _sse_reader(self) -> None:
-        resp = None
-        for _ in range(3):  # Burp có thể mở port trễ — thử lại
+        """Đọc SSE endpoint; retry cả connect lẫn mid-stream reset (Windows)."""
+        for _ in range(5):
+            if self._endpoint:
+                return
             req = urllib.request.Request(
                 self.base + "/sse", headers={"Accept": "text/event-stream"}
             )
             try:
                 resp = urllib.request.urlopen(req, timeout=120)
-                break
             except OSError:
                 time.sleep(1.0)
-        if resp is None:
-            return
-        ev, data = None, []
-        for raw in resp:
-            line = raw.decode("utf-8", "replace").rstrip("\r\n")
-            if line.startswith("event:"):
-                ev = line[6:].strip()
-            elif line.startswith("data:"):
-                data.append(line[5:].strip())
-            elif line == "" and (ev or data):
-                self.events.put((ev, "\n".join(data)))
-                ev, data = None, []
+                continue
+            ev, data = None, []
+            try:
+                for raw in resp:
+                    line = raw.decode("utf-8", "replace").rstrip("\r\n")
+                    if line.startswith("event:"):
+                        ev = line[6:].strip()
+                    elif line.startswith("data:"):
+                        data.append(line[5:].strip())
+                    elif line == "" and (ev or data):
+                        self.events.put((ev, "\n".join(data)))
+                        if ev == "endpoint":
+                            self._endpoint = "\n".join(data)
+                            return
+                        ev, data = None, []
+            except OSError:
+                time.sleep(0.5)  # reset giữa chừng → kết nối lại đọc từ đầu
 
     def _wait_endpoint(self, timeout: float) -> str:
         deadline = time.time() + timeout
