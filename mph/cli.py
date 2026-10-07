@@ -131,12 +131,15 @@ def cert(serial: str | None = None) -> None:
 
 
 @app.command()
-def selftest(phase: str = typer.Option("p1", help="p1 = den HTTPS qua Burp")) -> None:
+def selftest(phase: str = typer.Option("p1", help="p1 = HTTPS qua Burp; p2 = + magisk/integrity/frida")) -> None:
     """Chay kiem tra tich hợp end-to-end."""
-    from .selftest import run_p1
+    from .selftest import run_p1, run_p2
 
     cfg = _load_config()
-    ok, rows = run_p1(cfg)
+    if phase == "p2":
+        ok, rows = run_p2(cfg)
+    else:
+        ok, rows = run_p1(cfg)
     for name, good, detail in rows:
         print(f"[{'OK ' if good else 'FAIL'}] {name}: {detail}")
     raise typer.Exit(code=0 if ok else 1)
