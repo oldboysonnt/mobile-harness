@@ -36,23 +36,29 @@ def _device_route_probe(adb: Adb, port: int) -> bool:
     return r.ok and "200" in r.out
 
 
-def _host_verify(pem_path: Path, port: int) -> tuple[str, str]:
-    """Host-side: HTTPS qua Burp với CA vừa cài (stdlib, không lệch curl build)."""
+def _host_verify(pem_path: Path, port: int, attempts: int = 3) -> tuple[str, str]:
+    """Host-side: HTTPS qua Burp với CA vừa cài (stdlib + retry)."""
     import http.client
     import ssl
+    import time
 
-    ctx = ssl.create_default_context(cafile=str(pem_path))
-    conn = http.client.HTTPSConnection("127.0.0.1", port, context=ctx, timeout=30)
-    try:
-        conn.set_tunnel("example.com", 443)
-        conn.request("GET", "/", headers={"Host": "example.com"})
-        resp = conn.getresponse()
-        resp.read()
-        return str(resp.status), ""
-    except (OSError, ssl.SSLError) as e:
-        return "000", str(e)
-    finally:
-        conn.close()
+    last_err = ""
+    for attempt in range(attempts):
+        ctx = ssl.create_default_context(cafile=str(pem_path))
+        conn = http.client.HTTPSConnection("127.0.0.1", port, context=ctx, timeout=30)
+        try:
+            conn.set_tunnel("example.com", 443)
+            conn.request("GET", "/", headers={"Host": "example.com"})
+            resp = conn.getresponse()
+            resp.read()
+            return str(resp.status), ""
+        except (OSError, ssl.SSLError) as e:
+            last_err = str(e)
+            if attempt < attempts - 1:
+                time.sleep(2)
+        finally:
+            conn.close()
+    return "000", last_err
 
 
 def _adb_root(adb: Adb) -> Adb:
