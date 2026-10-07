@@ -3,7 +3,9 @@ from ..errors import HarnessError
 
 
 def proxy_on(adb, port: int) -> None:
-    """Bật: adb reverse tcp:port + system http_proxy trỏ 127.0.0.1:port."""
+    """Bật: adb reverse (remove + re-add — rule cũ chết ngầm sau adbd
+    restart) + system http_proxy trỏ 127.0.0.1:port."""
+    adb.run("reverse", f"--remove tcp:{port}")  # bỏ qua lỗi khi chưa có rule
     r = adb.run("reverse", f"tcp:{port}", f"tcp:{port}")
     if not r.ok:
         raise HarnessError("adb reverse that bai", hint=r.err)

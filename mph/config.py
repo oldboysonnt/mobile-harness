@@ -36,6 +36,27 @@ class Config:
     proxy_port: int
     burp_mcp_port: int
     workspace: Path
+    magisk_slug: str = "topjohnwu/Magisk"
+    shamiko_slug: str = "LSPosed/LSPosed.github.io"
+    pif_slugs: tuple = (
+        "osm0sis/PlayIntegrityFork",
+        "chiteroman/PlayIntegrityFork",
+        "jyotidwi/PlayIntegrityFix",
+    )
+    frida_server_url_tpl: str = (
+        "https://github.com/frida/frida/releases/download/{ver}/"
+        "frida-server-{ver}-android-x86_64.xz"
+    )
+    frida_engine: str = "stock"
+    frida_client_ver: str = "auto"
+    frida_alias: str = "sysmondd"
+    frida_port: int = 27042
+    spic_slug: str = "herzhenr/spic-android"
+    rootavd_url: str = (
+        "https://gitlab.com/newbit/rootAVD/-/archive/master/rootAVD-master.tar.gz"
+    )
+    tools_dir: Path = _REPO_ROOT / "tools"
+    fingerprints_dir: Path = _REPO_ROOT / "fingerprints"
 
 
 def _resolve_burp() -> Path | None:
@@ -57,6 +78,9 @@ def load_config(path: Path | None = None) -> Config:
     p = data.get("paths", {})
     avd = data.get("avd", {})
     px = data.get("proxy", {})
+    root = data.get("root", {})
+    frida = data.get("frida", {})
+    vendor = data.get("vendor", {})
     sdk = Path(
         os.environ.get("ANDROID_HOME")
         or p.get("sdk", r"C:\Users\sonnt\AppData\Local\Android\Sdk")
@@ -71,4 +95,27 @@ def load_config(path: Path | None = None) -> Config:
         proxy_port=int(px.get("port", 8080)),
         burp_mcp_port=int(px.get("burp_mcp_port", 9876)),
         workspace=_REPO_ROOT / data.get("workspace", {}).get("root", "workspace"),
+        magisk_slug=str(root.get("magisk_slug", "topjohnwu/Magisk")),
+        shamiko_slug=str(root.get("shamiko_slug", "LSPosed/LSPosed.github.io")),
+        pif_slugs=tuple(root.get("pif_slugs", [
+            "osm0sis/PlayIntegrityFork",
+            "chiteroman/PlayIntegrityFork",
+            "jyotidwi/PlayIntegrityFix",
+        ])),
+        frida_server_url_tpl=str(frida.get(
+            "server_url_tpl",
+            "https://github.com/frida/frida/releases/download/{ver}/"
+            "frida-server-{ver}-android-x86_64.xz",
+        )),
+        frida_engine=str(frida.get("engine", "stock")),
+        frida_client_ver=str(frida.get("client_ver", "auto")),
+        frida_alias=str(frida.get("alias", "sysmondd")),
+        frida_port=int(frida.get("port", 27042)),
+        spic_slug=str(vendor.get("spic_slug", "herzhenr/spic-android")),
+        rootavd_url=str(vendor.get(
+            "rootavd_url",
+            "https://gitlab.com/newbit/rootAVD/-/archive/master/rootAVD-master.tar.gz",
+        )),
+        tools_dir=_REPO_ROOT / "tools",
+        fingerprints_dir=_REPO_ROOT / "fingerprints",
     )

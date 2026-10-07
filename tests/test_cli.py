@@ -26,3 +26,9 @@ def test_burp_status_no_burp(tmp_path, monkeypatch):
     monkeypatch.setattr(cli_mod, "_load_config", lambda: FakeCfg())
     r = runner.invoke(app, ["burp", "status"])
     assert r.exit_code == 0 and "not running" in r.output
+
+def test_help_lists_new_groups():
+    r = runner.invoke(app, ["--help"])
+    assert r.exit_code == 0
+    for word in ("frida", "root", "integrity", "bootstrap"):
+        assert word in r.output

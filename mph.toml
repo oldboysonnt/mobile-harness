@@ -16,3 +16,22 @@ burp_mcp_port = 9876
 
 [workspace]
 root = "workspace"
+
+[root]
+# Ruling 2026-10-07: chiteroman/jyotidwi PIF + strongR binary bi GitHub dọn (404/rỗng)
+# → resolve qua API; PIF living source = osm0sis/PlayIntegrityFork
+magisk_slug  = "topjohnwu/Magisk"
+shamiko_slug = "LSPosed/LSPosed.github.io"
+pif_slugs    = ["osm0sis/PlayIntegrityFork", "chiteroman/PlayIntegrityFork", "jyotidwi/PlayIntegrityFix"]
+
+[frida]
+engine           = "stock"   # stock = frida chính chủ + rename alias (strongR chưa có nguồn binary)
+client_ver       = "auto"    # auto = lấy theo pip frida đang cài
+server_url_tpl   = 'https://github.com/frida/frida/releases/download/{ver}/frida-server-{ver}-android-x86_64.xz'
+alias            = "sysmondd"
+# 27042 = frida default (client -U phụ thuộc); đổi thì phải dùng forward+-H (P4)
+port             = 27042
+
+[vendor]
+spic_slug   = "herzhenr/spic-android"
+rootavd_url = 'https://gitlab.com/newbit/rootAVD/-/archive/master/rootAVD-master.tar.gz'

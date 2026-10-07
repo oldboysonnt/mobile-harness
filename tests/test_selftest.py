@@ -108,3 +108,22 @@ def test_p1_corrupt_der_structured(tmp_path):
     ok, rows = run_p1(FakeCfg(tmp_path), deps=DepsJunk)  # ValueError bị bắt
     assert ok is False
     assert any(r[0] == "ca" and r[1] is False for r in rows)
+
+def test_p2_extends_p1(tmp_path):
+    from mph.selftest import run_p2
+    class DepsP2(DepsFail):
+        device_route_probe = staticmethod(lambda adb, port: True)  # P1 xanh
+        @staticmethod
+        def device_https_probe(adb, port):
+            return "nocurl", "skipped by ruling"
+        magisk_present = staticmethod(lambda adb: True)
+        integrity_status = staticmethod(lambda adb, cfg: {
+            "shamiko": True, "pif": True, "zygisk": True,
+            "denylist": 2, "fingerprints": ["pixel8"]})
+        frida_start = staticmethod(lambda adb, cfg: "/data/local/tmp/sysmondd")
+        frida_health = staticmethod(lambda adb: True)
+        unpin_smoke = staticmethod(lambda adb, cfg: (0, "smoke"))
+    ok, rows = run_p2(FakeCfg(tmp_path), deps=DepsP2)
+    names = [r[0] for r in rows]
+    assert ok is True
+    assert {"magisk", "integrity", "frida", "unpin-smoke"} <= set(names)

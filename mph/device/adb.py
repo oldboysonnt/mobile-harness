@@ -62,6 +62,12 @@ class Adb:
         assert last is not None
         return last
 
+    def su(self, cmd: str, timeout: float = 60) -> "AdbResult":
+        """Chạy lệnh với quyền root qua `su -c` — một arg duy nhất để
+        adb shell không vỡ quoting khi cmd chứa khoảng trắng."""
+        import shlex
+        return self.run("shell", f"su -c {shlex.quote(cmd)}", timeout=timeout)
+
     @staticmethod
     def devices(adb_path: str = "adb") -> list[tuple[str, str]]:
         """Trả [(serial, state)] từ `adb devices`."""
