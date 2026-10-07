@@ -34,3 +34,18 @@ def test_no_burp_returns_none_not_raise(tmp_path, monkeypatch):
     monkeypatch.setattr(C, "_BURP_CANDIDATES", ())
     cfg = C.load_config(tmp_path / "nonexistent.toml")
     assert cfg.burp_exe is None  # doctor phải in FAIL, không traceback
+
+def test_root_and_frida_sections(tmp_path, monkeypatch):
+    monkeypatch.delenv("ANDROID_HOME", raising=False)
+    monkeypatch.delenv("BURP_PATH", raising=False)
+    cfg = load_config(tmp_path / "nonexistent.toml")
+    assert cfg.frida_alias == "sysmondd"
+    assert cfg.tools_dir.name == "tools"
+    assert cfg.fingerprints_dir.name == "fingerprints"
+    assert "topjohnwu/Magisk" in cfg.magisk_url
+    assert "LSPosed/LSPosed.github.io" in cfg.shamiko_url
+    assert "chiteroman/PlayIntegrityFork" in cfg.pif_slugs
+    assert "jyotidwi/PlayIntegrityFix" in cfg.pif_slugs
+    assert "CrackerCat/strongR-frida-android" in cfg.strongr_url_tpl
+    assert "herzhenr/spic-android" in cfg.spic_url
+    assert "newbit/rootAVD" in cfg.rootavd_url
