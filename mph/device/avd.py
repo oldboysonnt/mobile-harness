@@ -28,12 +28,33 @@ def avd_boot(sdk: Path, name: str, runner_popen=subprocess.Popen,
     )
 
 
-def avd_serial() -> str | None:
-    """Serial emulator-XXXX đầu tiên đang online."""
-    for serial, _state in Adb.devices():
-        if serial.startswith("emulator-"):
-            return serial
+def avd_serial(avd_name: str | None = None, devices=None,
+               name_of=None) -> str | None:
+    """Serial emulator khớp tên AVD, state 'device'; None nếu mơ hồ."""
+    list_devices = devices or Adb.devices
+    get_name = name_of or _emu_avd_name
+    online = [s for s, st in list_devices()
+              if s.startswith("emulator-") and st == "device"]
+    if avd_name is None:
+        return online[0] if online else None
+    unknown = []
+    for s in online:
+        nm = get_name(s)
+        if nm == avd_name:
+            return s
+        if nm is None:
+            unknown.append(s)
+    if len(online) == 1 and unknown:
+        return online[0]  # không xác minh được tên + chỉ 1 emulator → chấp nhận
     return None
+
+
+def _emu_avd_name(serial: str) -> str | None:
+    r = Adb(serial=serial).run("emu", "avd", "name", timeout=15)
+    if not r.ok:
+        return None
+    first = r.out.strip().splitlines()[0].strip() if r.out.strip() else ""
+    return first or None
 
 
 def wait_booted(serial: str, adb: Adb, timeout: float = 300) -> bool:
@@ -47,13 +68,13 @@ def wait_booted(serial: str, adb: Adb, timeout: float = 300) -> bool:
     return False
 
 
-def wait_serial(timeout: float = 120, devices=None, sleeper=time.sleep) -> str | None:
-    """Đợi emulator đăng ký vào adb (poll danh sách device)."""
-    list_devices = devices or Adb.devices
+def wait_serial(timeout: float = 120, avd_name: str | None = None, devices=None,
+                name_of=None, sleeper=time.sleep) -> str | None:
+    """Đợi emulator đích đăng ký vào adb (theo tên AVD nếu có)."""
     deadline = time.time() + timeout
     while time.time() < deadline:
-        for serial, _state in list_devices():
-            if serial.startswith("emulator-"):
-                return serial
+        s = avd_serial(avd_name, devices=devices, name_of=name_of)
+        if s:
+            return s
         sleeper(2)
     return None

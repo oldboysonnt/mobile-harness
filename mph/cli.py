@@ -57,7 +57,7 @@ def setup_run() -> None:
     create_avd(sdk, cfg.avd_name, cfg.image)
     avd_mod.avd_boot(sdk, cfg.avd_name,
                      log_path=Path(cfg.workspace) / "logs" / "emulator.log")
-    serial = avd_mod.wait_serial(timeout=120)
+    serial = avd_mod.wait_serial(timeout=120, avd_name=cfg.avd_name)
     if not serial:
         print("khong thay emulator serial sau 120s — xem workspace/logs/emulator.log")
         raise typer.Exit(code=1)
@@ -92,7 +92,7 @@ def burp_status_cmd() -> None:
 def proxy_on_cmd() -> None:
     """Bat adb reverse + global http_proxy."""
     cfg = _load_config()
-    serial = avd_mod.avd_serial()
+    serial = avd_mod.avd_serial(cfg.avd_name)
     adb = Adb(serial=serial) if serial else Adb()
     route_mod.proxy_on(adb, cfg.proxy_port)
     print("proxy on")
@@ -112,7 +112,7 @@ def cert(serial: str | None = None) -> None:
     """Tai CA Burp va cai vao system store cua device."""
     cfg = _load_config()
     der = cert_mod.fetch_der(cfg.proxy_port)
-    adb = Adb(serial=serial) if serial else Adb()
+    adb = Adb(serial=serial) if serial else Adb(serial=avd_mod.avd_serial(cfg.avd_name))
     name = cert_mod.install_system_ca(der, adb)
     print(f"installed {name}")
 
