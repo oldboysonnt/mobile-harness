@@ -22,13 +22,16 @@ def test_wait_port_open():
         srv.close()
 
 def test_start_idempotent_when_port_open(tmp_path):
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    port = srv.getsockname()[1]
+    srv.listen(1)
+
     class FakeCfg:
         burp_exe = tmp_path / "burpsuite_pro.jar"
         burp_bin = tmp_path
-        proxy_port = 8080
-    srv = socket.socket()
+        proxy_port = port
     try:
-        srv.bind(("127.0.0.1", 8080)); srv.listen(1)
         assert burp_start(FakeCfg(), tmp_path / "p.burp", tmp_path / "c.json",
                           popen=None) == -1
     finally:
