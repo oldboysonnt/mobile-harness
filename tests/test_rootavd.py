@@ -6,7 +6,7 @@ from mph.root.rootavd import build_root_cmd, magisk_present, root_via_rootavd
 def test_build_cmd_uses_git_bash():
     cmd = build_root_cmd(Path("C:/gb/bash.exe"), Path("t/rootavd"),
                          Path("avd/mph_avd.avd"))
-    assert cmd[0] == "C:/gb/bash.exe"
+    assert Path(cmd[0]).as_posix() == "C:/gb/bash.exe"  # Path chuẩn hoá backslash
     assert any("rootAVD.sh" in a for a in cmd)
     assert cmd[-1].endswith("mph_avd.avd")
 
