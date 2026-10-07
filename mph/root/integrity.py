@@ -20,7 +20,12 @@ def integrity_install(adb, cfg, paths: dict) -> dict:
     fp = _default_fingerprint(cfg)
     if fp:
         fingerprint_use(adb, cfg, fp)
-    return {"zygisk": True, "shamiko": True, "pif": True, "fingerprint": fp or ""}
+    return {
+        "zygisk": _zygisk_on(adb),
+        "shamiko": _dir_exists(adb, SHAMIKO_MODULE_DIR),
+        "pif": _dir_exists(adb, PIF_MODULE_DIR),
+        "fingerprint": fp or "",
+    }
 
 
 def _default_fingerprint(cfg) -> str | None:
@@ -53,11 +58,17 @@ def _dir_exists(adb, d: str) -> bool:
     return "yes" in r.out
 
 
+def _zygisk_on(adb) -> bool:
+    r = adb.su("magisk --sqlite \"SELECT value FROM settings WHERE key='zygisk'\"")
+    tail = r.out.strip().rsplit("=", 1)[-1].strip()
+    return tail == "1"
+
+
 def integrity_status(adb, cfg) -> dict:
     return {
         "shamiko": _dir_exists(adb, SHAMIKO_MODULE_DIR),
         "pif": _dir_exists(adb, PIF_MODULE_DIR),
-        "zygisk": "zygisk" in adb.su("magisk --sqlite 'SELECT value FROM settings WHERE key=\"zygisk\"'").out or True,
+        "zygisk": _zygisk_on(adb),
         "denylist": len(denylist_status(adb)),
         "fingerprints": fingerprint_list(cfg),
     }

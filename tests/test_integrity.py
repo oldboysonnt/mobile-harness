@@ -15,7 +15,13 @@ class FakeAdb:
 
     def run(self, *args, timeout=60, device=True):
         self.calls.append(" ".join(args))
-        return type("R", (), {"ok": True, "out": "", "err": "", "code": 0})()
+        out = ""
+        joined = " ".join(args)
+        if "test -d" in joined:
+            out = "yes"  # giả lập module dirs tồn tại
+        if "zygisk" in joined and "SELECT" in joined:
+            out = "value=1"
+        return type("R", (), {"ok": True, "out": out, "err": "", "code": 0})()
 
 class FakeMagisk:
     def zygisk_enable(self, adb):
@@ -45,6 +51,24 @@ def test_integrity_install_orchestrates(tmp_path, monkeypatch):
     assert got["zygisk"] and got["shamiko"] and got["pif"]
     pushed = " ; ".join(a.calls)
     assert "s.zip" in pushed and "p.zip" in pushed
+
+def test_zygisk_status_reflects_db(tmp_path):
+    a = FakeAdb()
+
+    class C:
+        fingerprints_dir = tmp_path / "fp"
+    st = integrity_status(a, C())
+    assert st["zygisk"] is True  # value=1 từ db
+
+    class FakeOff(FakeAdb):
+        def run(self, *args, timeout=60, device=True):
+            self.calls.append(" ".join(args))
+            out = "yes" if "test -d" in " ".join(args) else (
+                "value=0" if "zygisk" in " ".join(args) else "")
+            return type("R", (), {"ok": True, "out": out, "err": "", "code": 0})()
+
+    st2 = integrity_status(FakeOff(), C())
+    assert st2["zygisk"] is False  # F10: không còn hằng True
 
 def test_fingerprint_use_pushes_json(tmp_path):
     fp = tmp_path / "fp"

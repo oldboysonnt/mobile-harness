@@ -3,6 +3,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 import zipfile
 from pathlib import Path
 
@@ -52,15 +53,19 @@ def denylist_status(adb) -> list:
 def install_module(adb, zip_local: Path) -> bool:
     """Cài module: push zip + `magisk --install-module`; nếu daemon báo
     'Incomplete Magisk install' (Magisk ramdisk cũ) thì fallback: giải nén
-    zip trên host và copy thẳng vào /data/adb/modules_update/<id>/."""
+    zip trên host, copy vào CẢ modules_update lẫn modules (kích hoạt ngay)."""
     require_magisk(adb)
     remote = f"/data/local/tmp/{Path(zip_local).name}"
     p = adb.run("push", str(zip_local), remote)
     if not p.ok:
         raise HarnessError("push module zip that bai", hint=p.err)
     r = adb.su(f"magisk --install-module {remote}")
-    if "Incomplete" not in (r.out + r.err):
+    if r.ok and "Incomplete" not in (r.out + r.err):
         return True
+    if "Incomplete" not in (r.out + r.err):
+        raise HarnessError(
+            "magisk --install-module that bai",
+            hint=(r.err or r.out)[-300:])
     _install_module_manual(adb, zip_local)
     return True
 
@@ -74,14 +79,24 @@ def _install_module_manual(adb, zip_local: Path) -> str:
         except NotImplementedError:  # zip zstd — bsdtar đọc được
             subprocess.run(["tar", "-xf", str(zip_local), "-C", str(tmp)],
                            check=True, capture_output=True, timeout=300)
-        prop = (tmp / "module.prop").read_text(encoding="utf-8",
-                                               errors="replace")
-        mid = re.search(r"^id=(\S+)", prop, re.M).group(1)
-        stage = "/data/local/tmp/modstage"
+        try:
+            prop = (tmp / "module.prop").read_text(encoding="utf-8",
+                                                   errors="replace")
+            mid = re.search(r"^id=(\S+)", prop, re.M).group(1)
+        except (FileNotFoundError, AttributeError) as e:
+            raise HarnessError(f"module.prop khong hop le: {zip_local.name}",
+                               hint=str(e)) from e
+        stage = f"/data/local/tmp/modstage-{mid}-{time.time_ns()}"
         adb.run("shell", "mkdir", "-p", stage)
         adb.run("push", str(tmp) + "/.", stage)
-        remote = f"/data/adb/modules_update/{mid}"
-        adb.su(f"mkdir -p {remote} && cp -R {stage}/. {remote}/ && chmod -R 755 {remote}")
+        # F1+F2: dọn dest, copy vào CẢ 2 nơi, tự dọn stage
+        adb.su(
+            f"mkdir -p /data/adb/modules_update/{mid} "
+            f"&& cp -R {stage}/. /data/adb/modules_update/{mid}/ "
+            f"&& mkdir -p /data/adb/modules/{mid} "
+            f"&& cp -R {stage}/. /data/adb/modules/{mid}/ "
+            f"&& chmod -R 755 /data/adb/modules/{mid} "
+            f"&& rm -rf {stage}")
         return mid
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

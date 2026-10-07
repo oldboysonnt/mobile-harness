@@ -51,3 +51,49 @@ def test_hide_emu_props_resets_qemu_markers():
     joined = " ; ".join(a.calls)
     assert "ro.kernel.qemu" in joined and "ro.boot.qemu" in joined
     assert any("ro.product.device" in c for c in a.calls)
+
+def test_install_module_real_failure_raises():
+    a = FakeAdb()
+    class Bad:
+        ok = False; out = ""; err = "zip corrupt"; code = 1
+    orig = a.run
+    def run2(*args, **k):
+        if args[0] == "shell" and "install-module" in args[-1]:
+            return Bad()
+        return orig(*args, **k)
+    a.run = run2
+    import pytest as _p
+    from mph.errors import HarnessError as HE
+    with _p.raises(HE) as e:
+        install_module(a, Path("tools/bad.zip"))
+    assert "zip corrupt" in str(e.value) or "module" in str(e.value)
+
+def test_manual_install_copies_to_modules_too():
+    a = FakeAdb()
+    class R:
+        ok = True; out = "Incomplete Magisk install"; err = ""; code = 0
+    orig = a.run
+    def run2(*args, **k):
+        if args[0] == "shell" and "install-module" in args[-1]:
+            return R()
+        return orig(*args, **k)
+    a.run = run2
+    import zipfile
+    z = Path("tools/_tmod.zip")
+    if z.exists():
+        z.unlink()
+    import tempfile, shutil
+    d = Path(tempfile.mkdtemp())
+    (d / "module.prop").write_text("id=testmod\nname=T\nversion=1\n", encoding="utf-8")
+    with zipfile.ZipFile(z, "w") as zf:
+        for f in d.iterdir():
+            zf.write(f, f.name)
+    try:
+        assert install_module(a, z) is True
+        joined = " ; ".join(a.calls)
+        assert "/data/adb/modules_update/testmod" in joined
+        assert "/data/adb/modules/testmod" in joined  # F1: kích hoạt ngay
+        assert "modstage-" in joined  # F2: stage dir duy nhất mỗi lần
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+        z.unlink(missing_ok=True)
