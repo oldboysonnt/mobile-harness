@@ -70,9 +70,23 @@ class BurpMcp:
             headers={"Content-Type": "application/json"},
         )
         try:
-            urllib.request.urlopen(req, timeout=timeout).read()
-        except OSError as e:
-            raise HarnessError(f"burp mcp loi post: {method}", hint=str(e)) from e
+            raw = urllib.request.urlopen(req, timeout=timeout).read()
+        except OSError:
+            # Windows thỉnh thoảng reset loopback POST (AV/backlog) — thử lại 1 lần
+            time.sleep(0.3)
+            try:
+                raw = urllib.request.urlopen(req, timeout=timeout).read()
+            except OSError as e:
+                raise HarnessError(f"burp mcp loi post: {method}", hint=str(e)) from e
+        # JSON-RPC over HTTP: response có thể về ngay trong body (một số server),
+        # hoặc qua SSE stream như Montague của Burp (202 + body rỗng).
+        if raw:
+            try:
+                msg = json.loads(raw)
+                if msg.get("id") == self._id:
+                    return msg
+            except ValueError:
+                pass
         stash: list[tuple[str, str]] = []
         deadline = time.time() + timeout
         while time.time() < deadline:
