@@ -21,10 +21,29 @@ def test_retry_transient_then_ok():
     assert r.ok and len(calls) == 2
 
 def test_retry_exhausted():
-    calls, runner = _fake_run([(1, "", "device offline")] * 3)
+    calls, runner = _fake_run([(1, "", "device offline")] * 4)
     a = Adb(serial="e", runner=runner, sleeper=lambda s: None)
     r = a.run("shell", "true")
-    assert not r.ok and len(calls) == 3
+    assert not r.ok and len(calls) == 4  # 1 lần đầu + 3 retry (backoff 0.5/1/2)
+
+def test_backoff_sequence():
+    sleeps = []
+    calls, runner = _fake_run([(1, "", "device offline")] * 4)
+    a = Adb(serial="e", runner=runner, sleeper=sleeps.append)
+    a.run("shell", "true")
+    assert sleeps == [0.5, 1.0, 2.0]
+
+def test_timeout_expired_retried_not_raised():
+    import subprocess
+    calls = []
+    def runner(cmd, timeout=None):
+        calls.append(cmd)
+        if len(calls) < 2:
+            raise subprocess.TimeoutExpired(cmd, timeout)
+        return (0, "ok", "")
+    a = Adb(serial="e", runner=runner, sleeper=lambda s: None)
+    r = a.run("shell", "true")
+    assert r.ok and len(calls) == 2
 
 def test_no_retry_on_normal_error():
     calls, runner = _fake_run([(1, "", "Unknown command")])

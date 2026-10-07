@@ -31,7 +31,7 @@ class Adb:
         self,
         serial: str | None = None,
         adb_path: str = "adb",
-        retries: int = 3,
+        retries: int = 4,
         runner: Callable = _raw_run,
         sleeper: Callable[[float], None] = time.sleep,
     ) -> None:
@@ -42,7 +42,7 @@ class Adb:
         self._sleep = sleeper
 
     def run(self, *args: str, timeout: float = 60, device: bool = True) -> AdbResult:
-        """Chạy `adb [-s serial] *args`; retry tối đa `retries` lần lỗi tạm thời."""
+        """Chạy lệnh; 1 lần đầu + (retries-1) retry lỗi tạm thời, backoff 0.5/1/2."""
         cmd = (
             [self.adb_path]
             + (["-s", self.serial] if (self.serial and device) else [])
@@ -50,7 +50,10 @@ class Adb:
         )
         last: AdbResult | None = None
         for attempt in range(self.retries):
-            code, out, err = self._run(cmd, timeout=timeout)
+            try:
+                code, out, err = self._run(cmd, timeout=timeout)
+            except subprocess.TimeoutExpired:
+                code, out, err = 124, "", "timeout expired"  # transient → retry
             last = AdbResult(code == 0, out, err, code)
             if last.ok or not any(t in err.lower() for t in TRANSIENT):
                 return last
