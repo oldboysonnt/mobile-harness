@@ -1,5 +1,6 @@
 # tests/test_integrity.py
 import json
+from pathlib import Path
 
 from mph.root.integrity import (PIF_MODULE_DIR, fingerprint_list,
                                 fingerprint_use, integrity_install,
@@ -21,6 +22,8 @@ class FakeMagisk:
         return True
 
     def install_module(self, adb, z):
+        adb.run("push", str(z), f"/data/local/tmp/{Path(z).name}")
+        adb.run("shell", "su", "-c", f"magisk --install-module /data/local/tmp/{Path(z).name}")
         return True
 
 def test_integrity_install_orchestrates(tmp_path, monkeypatch):
