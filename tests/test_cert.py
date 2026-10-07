@@ -47,6 +47,31 @@ def test_fetch_der(monkeypatch):
                         lambda url, timeout=None: FakeResp())
     assert fetch_der(8080) == der
 
+def test_fetch_der_retries_transient_reset(monkeypatch):
+    der = _self_signed()
+    attempts = []
+
+    class FakeResp:
+        def read(self):
+            return der
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def flaky(url, timeout=None):
+        attempts.append(url)
+        if len(attempts) < 3:  # Burp warm-up: port mở nhưng reset vài request đầu
+            import OSError as _E  # noqa: F401
+            raise ConnectionResetError(10054, "reset")
+        return FakeResp()
+
+    monkeypatch.setattr("mph.proxy.cert.urllib.request.urlopen", flaky)
+    monkeypatch.setattr("mph.proxy.cert.time.sleep", lambda s: None)
+    assert fetch_der(8080) == der and len(attempts) == 3
+
 class FakeAdb:
     def __init__(self):
         self.calls = []

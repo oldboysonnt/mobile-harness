@@ -6,6 +6,7 @@ little-endian)>.0 — apps API 24+ chỉ tin CA ở system store.
 import hashlib
 import struct
 import tempfile
+import time
 import urllib.request
 from pathlib import Path
 
@@ -14,19 +15,27 @@ from cryptography.hazmat.primitives import serialization
 
 from ..errors import HarnessError
 
+FETCH_ATTEMPTS = 6
+FETCH_BACKOFF = 1.0
+
 
 def fetch_der(port: int, opener=None) -> bytes:
-    """Tải DER CA từ endpoint /cert của proxy listener."""
+    """Tải DER CA từ /cert của proxy listener; retry khi Burp còn warm-up."""
     if opener is None:
         opener = urllib.request.urlopen
-    try:
-        with opener(f"http://127.0.0.1:{port}/cert", timeout=10) as r:
-            return r.read()
-    except OSError as e:
-        raise HarnessError(
-            f"khong tai duoc CA tu :{port}/cert — Burp chay chua?",
-            hint=str(e),
-        ) from e
+    last_err: OSError | None = None
+    for attempt in range(FETCH_ATTEMPTS):
+        try:
+            with opener(f"http://127.0.0.1:{port}/cert", timeout=10) as r:
+                return r.read()
+        except OSError as e:
+            last_err = e
+            if attempt < FETCH_ATTEMPTS - 1:
+                time.sleep(FETCH_BACKOFF)
+    raise HarnessError(
+        f"khong tai duoc CA tu :{port}/cert sau {FETCH_ATTEMPTS} lan — Burp chay chua?",
+        hint=str(last_err),
+    ) from last_err
 
 
 def pem_and_name(der: bytes) -> tuple[str, str]:
