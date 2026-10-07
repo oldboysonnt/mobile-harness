@@ -1,17 +1,22 @@
-"""Selftest P1: boot → burp → CA → proxy → HTTPS qua Burp.
+"""Selftest P1/P2: boot → burp → CA → proxy → HTTPS → magisk → integrity → frida.
 
 Ruling (2026-10-07): image API 34 không có curl/wget (toybox chỉ có nc) —
 oracle tách 3 mảnh: (a) nc CONNECT từ device chứng minh routing,
 (b) host curl --cacert chứng minh CA + intercept TLS, (c) curl device nếu có.
 """
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
 from .device import avd as avd_mod
 from .device.adb import Adb
+from .frida import server as frida_server
+from .frida import scripts as frida_scripts
 from .proxy import burp as burp_mod
 from .proxy import cert as cert_mod
 from .proxy import route as route_mod
+from .root.integrity import integrity_status
+from .root.rootavd import magisk_present
 
 
 def _device_https_probe(adb: Adb, port: int) -> tuple[str, str]:
@@ -79,6 +84,19 @@ class Deps:
     host_verify = staticmethod(_host_verify)
     device_route_probe = staticmethod(_device_route_probe)
     device_https_probe = staticmethod(_device_https_probe)
+    magisk_present = staticmethod(magisk_present)
+    integrity_status = staticmethod(integrity_status)
+
+    @staticmethod
+    def _frida_start_default(adb, cfg):
+        return frida_server.frida_start(
+            adb, Path(cfg.tools_dir) / "strongr.xz", alias=cfg.frida_alias)
+
+    frida_start = staticmethod(_frida_start_default)
+    frida_health = staticmethod(
+        lambda adb: frida_server._wait_frida_ps(adb, tries=3, delay=1.0))
+    unpin_smoke = staticmethod(
+        lambda adb, cfg: frida_scripts.run_unpin("com.android.chrome", None))
 
 
 def run_p1(cfg, deps: Deps | None = None) -> tuple[bool, list[tuple[str, bool, str]]]:
@@ -148,3 +166,41 @@ def run_p1(cfg, deps: Deps | None = None) -> tuple[bool, list[tuple[str, bool, s
         probe_ok = dcode == "200"
         rows.append(("https-probe", probe_ok, f"code={dcode} {derr}".strip()[:300]))
     return probe_ok, rows
+
+
+def run_p2(cfg, deps: "Deps | None" = None) -> tuple[bool, list]:
+    """P2 = toàn bộ P1 + magisk + integrity stack + frida ẩn + unpin smoke."""
+    d = deps or Deps()
+    p1_ok, rows = run_p1(cfg)
+    serial = d.avd_serial()
+    adb = d.adb_factory(serial)
+
+    if not d.magisk_present(adb):
+        rows.append(("magisk", False, "chua root — chay: mph root install"))
+        return False, rows
+    rows.append(("magisk", True, "su -v ok"))
+
+    try:
+        st = d.integrity_status(adb, cfg)
+        integ_ok = bool(st.get("shamiko")) and bool(st.get("pif"))
+        rows.append(("integrity", integ_ok, json.dumps(st, default=str)[:300]))
+    except Exception as e:  # noqa: BLE001
+        rows.append(("integrity", False, str(e)[:300]))
+        integ_ok = False
+
+    try:
+        remote = d.frida_start(adb, cfg)
+        frida_ok = d.frida_health(adb)
+        rows.append(("frida", frida_ok,
+                     f"{remote} health={'ok' if frida_ok else 'fail'}"))
+    except Exception as e:  # noqa: BLE001
+        rows.append(("frida", False, str(e)[:300]))
+        frida_ok = False
+
+    try:
+        code, out = d.unpin_smoke(adb, cfg)
+        rows.append(("unpin-smoke", True, f"exit={code} {out[:120]}"))
+    except Exception as e:  # noqa: BLE001
+        rows.append(("unpin-smoke", False, str(e)[:300]))
+
+    return p1_ok and integ_ok and frida_ok, rows
