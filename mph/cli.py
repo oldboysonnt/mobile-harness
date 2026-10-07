@@ -112,3 +112,15 @@ def cert(serial: str | None = None) -> None:
     adb = Adb(serial=serial) if serial else Adb()
     name = cert_mod.install_system_ca(der, adb)
     print(f"installed {name}")
+
+
+@app.command()
+def selftest(phase: str = typer.Option("p1", help="p1 = den HTTPS qua Burp")) -> None:
+    """Chay kiem tra tich hợp end-to-end."""
+    from .selftest import run_p1
+
+    cfg = _load_config()
+    ok, rows = run_p1(cfg)
+    for name, good, detail in rows:
+        print(f"[{'OK ' if good else 'FAIL'}] {name}: {detail}")
+    raise typer.Exit(code=0 if ok else 1)
