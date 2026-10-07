@@ -54,16 +54,16 @@ def install_system_ca(der: bytes, adb) -> str:
         (("root",), "image google_apis moi cho phep adb root"),
         (("remount",), "thu: adb disable-verity && adb reboot && remount"),
     ):
-        r = adb.run(*args, timeout=60, device=False)
+        r = adb.run(*args, timeout=60)  # root/remount là lệnh device-scoped
         if not r.ok:
-            raise HarnessError(f"adb {args[0]} that bai", hint=hint)
+            raise HarnessError(f"adb {args[0]} that bai", hint=f"{hint} | {r.err}")
     with tempfile.NamedTemporaryFile(
         "w", suffix=".0", delete=False, encoding="ascii"
     ) as f:
         f.write(pem)
         local = Path(f.name)
     remote = f"/system/etc/security/cacerts/{name}"
-    push = adb.run("push", str(local), remote, timeout=60, device=False)
+    push = adb.run("push", str(local), remote, timeout=60)
     if not push.ok:
         raise HarnessError("push CA that bai", hint=push.err)
     adb.run("shell", "chmod", "644", remote)

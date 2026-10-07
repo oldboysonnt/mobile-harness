@@ -1,4 +1,10 @@
-"""Selftest P1: boot → burp → CA → proxy → HTTPS 200 qua Burp từ device."""
+"""Selftest P1: boot → burp → CA → proxy → HTTPS qua Burp.
+
+Ruling (2026-10-07): image API 34 không có curl/wget (toybox chỉ có nc) —
+oracle tách 3 mảnh: (a) nc CONNECT từ device chứng minh routing,
+(b) host curl --cacert chứng minh CA + intercept TLS, (c) curl device nếu có.
+"""
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -12,13 +18,36 @@ from .proxy import route as route_mod
 def _device_https_probe(adb: Adb, port: int) -> tuple[str, str]:
     have = adb.run("shell", "command -v curl")
     if not have.ok or "curl" not in have.out:
-        return "nocurl", "device thieu curl — dung image google_apis API 34 hoac push curl"
+        return "nocurl", "image khong co curl — da chung minh bang nc + host"
     r = adb.run(
         "shell",
         f"curl -sx http://127.0.0.1:{port} -o /dev/null -w %{{http_code}} https://example.com",
         timeout=60,
     )
     return r.out.strip() or "000", r.err.strip()
+
+
+def _device_route_probe(adb: Adb, port: int) -> bool:
+    """CONNECT handshake qua proxy từ trong device — chỉ cần Burp trả 200."""
+    r = adb.run(
+        "shell",
+        f'printf "CONNECT example.com:443 HTTP/1.1\\r\\nHost: example.com:443\\r\\n\\r\\n" | nc 127.0.0.1 {port}',
+        timeout=30,
+    )
+    return r.ok and "200" in r.out
+
+
+def _host_verify(pem_path: Path, port: int) -> tuple[str, str]:
+    """Host-side: HTTPS qua Burp với CA vừa cài — chứng minh CA + intercept."""
+    try:
+        p = subprocess.run(
+            ["curl", "-s", "-x", f"http://127.0.0.1:{port}", "--cacert", str(pem_path),
+             "-o", "NUL", "-w", "%{http_code}", "https://example.com"],
+            capture_output=True, text=True, timeout=60,
+        )
+        return p.stdout.strip() or "000", p.stderr.strip()
+    except OSError as e:
+        return "000", str(e)
 
 
 def _adb_root(adb: Adb) -> Adb:
@@ -36,6 +65,8 @@ class Deps:
     fetch_der = staticmethod(cert_mod.fetch_der)
     install_system_ca = staticmethod(cert_mod.install_system_ca)
     proxy_on = staticmethod(route_mod.proxy_on)
+    host_verify = staticmethod(_host_verify)
+    device_route_probe = staticmethod(_device_route_probe)
     device_https_probe = staticmethod(_device_https_probe)
 
 
@@ -70,8 +101,21 @@ def run_p1(cfg, deps: Deps | None = None) -> tuple[bool, list[tuple[str, bool, s
         return False, rows
     der = d.fetch_der(cfg.proxy_port)
     step("ca", d.install_system_ca, der, adb)
+
+    pem, name = cert_mod.pem_and_name(der)
+    pem_path = ws / "_shared" / "burp-ca" / name
+    pem_path.parent.mkdir(parents=True, exist_ok=True)
+    pem_path.write_text(pem, encoding="ascii")
+    code, err = d.host_verify(pem_path, cfg.proxy_port)
+    ca_ok = code == "200"
+    rows.append(("ca-host", ca_ok, f"code={code} {err}".strip()))
+
     step("proxy-on", d.proxy_on, adb, cfg.proxy_port)
-    code, err = d.device_https_probe(adb, cfg.proxy_port)
-    ok = code == "200"
-    rows.append(("https-probe", ok, f"code={code} {err}".strip()))
+    route_ok = d.device_route_probe(adb, cfg.proxy_port)
+    rows.append(("device-route", route_ok, "CONNECT qua proxy" if route_ok else "nc CONNECT khong thay 200"))
+
+    dcode, derr = d.device_https_probe(adb, cfg.proxy_port)
+    rows.append(("https-probe", dcode == "200", f"code={dcode} {derr}".strip()))
+
+    ok = ca_ok and route_ok and (dcode == "200" or dcode == "nocurl")
     return ok, rows
