@@ -1,5 +1,22 @@
 # tests/test_selftest.py
+import datetime
+
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.x509.oid import NameOID
+
 from mph.selftest import run_p1
+
+def _self_signed() -> bytes:
+    key = ec.generate_private_key(ec.SECP256R1())
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "selftest-ca")])
+    now = datetime.datetime.now(datetime.timezone.utc)
+    cert = (x509.CertificateBuilder().subject_name(name).issuer_name(name)
+            .public_key(key.public_key()).serial_number(x509.random_serial_number())
+            .not_valid_before(now).not_valid_after(now + datetime.timedelta(days=1))
+            .sign(key, hashes.SHA256()))
+    return cert.public_bytes(serialization.Encoding.DER)
 
 class DepsFail:
     avd_serial = staticmethod(lambda: "emulator-5554")
@@ -7,7 +24,7 @@ class DepsFail:
     adb_root = staticmethod(lambda adb: adb)
     adb_factory = staticmethod(lambda serial: object())
     burp_start = staticmethod(lambda *a, **k: 123)
-    fetch_der = staticmethod(lambda port: b"\x30\x03\x02\x01\x01")
+    fetch_der = staticmethod(lambda port: _self_signed())
     install_system_ca = staticmethod(lambda der, adb: "a1b2c3d4.0")
     proxy_on = staticmethod(lambda adb, port: None)
     host_verify = staticmethod(lambda pem, port: ("200", ""))
