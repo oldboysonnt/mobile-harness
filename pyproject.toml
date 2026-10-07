@@ -1,0 +1,16 @@
+[project]
+name = "mph"
+version = "0.1.0"
+description = "Mobile Pentest Harness - AI-driven Android app security testing"
+requires-python = ">=3.12"
+dependencies = ["typer>=0.12", "cryptography>=42"]
+
+[project.scripts]
+mph = "mph.cli:app"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

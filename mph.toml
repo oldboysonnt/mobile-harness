@@ -1,0 +1,18 @@
+# mph.toml — mọi pin version/đường dẫn nằm ở đây, không hardcode trong code
+[paths]
+sdk = 'C:/Users/sonnt/AppData/Local/Android/Sdk'
+git_bash = 'C:/Program Files/Git/bin/bash.exe'
+burp_bin = 'C:/Program Files/Burp/bin'
+
+[avd]
+name = "mph_avd"
+image = "system-images;android-34;google_apis;x86_64"
+
+[proxy]
+# 8080 trên máy này bị Docker Desktop/WSL chiếm cố định → dùng 8082
+# (code default vẫn 8080 theo spec; file này override cho máy dev)
+port = 8082
+burp_mcp_port = 9876
+
+[workspace]
+root = "workspace"
