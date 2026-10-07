@@ -16,6 +16,9 @@ from .proxy import burp as burp_mod
 from .proxy import cert as cert_mod
 from .proxy import route as route_mod
 from .root.integrity import integrity_status
+from .re import apks as apks_mod, manifest as manifest_mod
+from .re.index import ensure_indexed as index_ensure
+from .re.jadx import decompile as jadx_mod_decompile
 from .root.rootavd import magisk_present
 
 
@@ -98,6 +101,10 @@ class Deps:
     unpin_smoke = staticmethod(
         lambda adb, cfg: frida_scripts.run_unpin("com.android.chrome", None,
                                                  timeout=60))
+    pull_apk = staticmethod(apks_mod.pull_apk)
+    decompile = staticmethod(lambda apk, out: jadx_mod_decompile(apk, out))
+    parse_manifest = staticmethod(manifest_mod.parse_manifest)
+    ensure_indexed = staticmethod(lambda cfg, out: index_ensure(cfg, out))
 
 
 def run_p1(cfg, deps: Deps | None = None) -> tuple[bool, list[tuple[str, bool, str]]]:
@@ -206,3 +213,51 @@ def run_p2(cfg, deps: "Deps | None" = None) -> tuple[bool, list]:
         rows.append(("unpin-smoke", False, str(e)[:300]))
 
     return p1_ok and integ_ok and frida_ok, rows
+
+
+P3_APP = "com.android.deskclock"
+
+
+def _step_row(rows, name, fn):
+    try:
+        detail = fn()
+        ok = detail is not False
+        rows.append((name, ok,
+                     "ok" if detail is None or detail is True
+                     else str(detail)[:300]))
+        return ok
+    except Exception as e:  # noqa: BLE001
+        rows.append((name, False, str(e)[:300]))
+        return False
+
+
+def run_p3(cfg, deps: "Deps | None" = None) -> tuple[bool, list]:
+    """P3 = P2 + pull APK + jadx + manifest + index (deskclock làm chuẩn)."""
+    d = deps or Deps()
+    p2_ok, rows = run_p2(cfg, deps=d)
+    ws = apks_mod.app_workspace(cfg, P3_APP.replace(".", "_"))
+    apk_dir = ws / "apk"
+    apk = apk_dir / f"{P3_APP}.apk"
+    if not apk.exists():
+        if not _step_row(rows, "pull", lambda: d.pull_apk(
+                d.adb_factory(d.avd_serial()), P3_APP, apk_dir)):
+            return False, rows
+    else:
+        rows.append(("pull", True, "skipped (co san)"))
+    jadx_out = ws / "jadx-out"
+    if not (jadx_out / "sources").exists():
+        if not _step_row(rows, "jadx", lambda: d.decompile(apk, jadx_out)):
+            return False, rows
+    else:
+        rows.append(("jadx", True, "skipped (co san)"))
+
+    def _mf():
+        m = d.parse_manifest(jadx_out)
+        manifest_mod.write_summary(m, ws / "manifest.json")
+        return m.get("package") or "ok"
+
+    if not _step_row(rows, "manifest", _mf):
+        return False, rows
+    if not _step_row(rows, "index", lambda: d.ensure_indexed(cfg, jadx_out)):
+        return False, rows
+    return p2_ok, rows

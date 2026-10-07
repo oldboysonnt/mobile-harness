@@ -32,3 +32,9 @@ def test_help_lists_new_groups():
     assert r.exit_code == 0
     for word in ("frida", "root", "integrity", "bootstrap"):
         assert word in r.output
+
+def test_help_lists_re_groups():
+    r = runner.invoke(app, ["--help"])
+    assert r.exit_code == 0
+    for word in ("apks", "re"):
+        assert word in r.output
