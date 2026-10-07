@@ -53,3 +53,40 @@ def test_ensure_indexed_skips_when_ok(tmp_path):
         assert got["status"] == "ok" and calls == []  # đã ok → skip
     finally:
         I.IndexClient = orig
+
+def test_tool_iserror_raises(tmp_path):
+    # stub trả isError khi repo_path endswith "fail"
+    class C: pass
+    import mph.re.index as I
+    c = IndexClient(CMD)
+    try:
+        import pytest as _p
+        from mph.errors import HarnessError as HE
+        with _p.raises(HE):
+            c._tool("index_repository", {"repo_path": "x/fail"})
+    finally:
+        c.close()
+
+def test_close_kills_on_timeout():
+    import mph.re.index as I
+    class FakeProc:
+        class _Pipe:
+            def close(self): pass
+        stdin = _Pipe(); stdout = _Pipe()
+        def wait(self, timeout=None):
+            import subprocess as sp
+            raise sp.TimeoutExpired(cmd="x", timeout=timeout)
+        def kill(self):
+            FakeProc.killed = True
+        def returncode(self): return 0
+    fp = FakeProc()
+    I._shutdown(fp)
+    assert FakeProc.killed is True
+
+def test_non_json_tool_text_raises(tmp_path):
+    import mph.re.index as I
+    r = {"content": [{"type": "text", "text": "Error: boom"}], "isError": True}
+    import pytest as _p
+    from mph.errors import HarnessError as HE
+    with _p.raises(HE):
+        I._check_result(r)

@@ -16,5 +16,11 @@ for line in sys.stdin:
         send({"jsonrpc": "2.0", "id": mid,
               "result": {"protocolVersion": "2024-11-05", "capabilities": {}}})
     elif m == "tools/call":
-        send({"jsonrpc": "2.0", "id": mid, "result": {"content": [
-            {"type": "text", "text": json.dumps({"status": "ok", "nodes": 100})}]}})
+        args = msg.get("params", {}).get("arguments", {})
+        if str(args.get("repo_path", "")).endswith("fail"):
+            send({"jsonrpc": "2.0", "id": mid, "result": {
+                "isError": True,
+                "content": [{"type": "text", "text": "Error: boom"}]}})
+        else:
+            send({"jsonrpc": "2.0", "id": mid, "result": {"content": [
+                {"type": "text", "text": json.dumps({"status": "ok", "nodes": 100})}]}})

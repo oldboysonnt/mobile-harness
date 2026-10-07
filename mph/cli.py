@@ -258,7 +258,7 @@ def apks_list():
 def apks_pull(package: str, app: str = typer.Option(None, help="ten workspace")):
     cfg = _load_config()
     serial = avd_mod.avd_serial(cfg.avd_name)
-    ws = apks_mod.app_workspace(cfg, app or package)
+    ws = apks_mod.app_workspace(cfg, app or package.replace('.', '_'))
     print(apks_mod.pull_apk(Adb(serial=serial), package, ws / "apk"))
 
 

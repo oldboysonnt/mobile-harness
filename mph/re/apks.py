@@ -1,10 +1,17 @@
 """Quản lý APK trên device + layout workspace per-app."""
+import re
 from pathlib import Path
 
 from ..errors import HarnessError
 
+_APP_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+
 
 def app_workspace(cfg, app: str) -> Path:
+    """Workspace per-app — app phải là MỘT component an toàn (chống escape)."""
+    if not app or not _APP_RE.match(app) or ".." in app:
+        raise HarnessError(f"ten app khong hop le: {app!r}",
+                            hint="chi cho phep [A-Za-z0-9_.-], khong duong dan")
     ws = Path(cfg.workspace) / app
     ws.mkdir(parents=True, exist_ok=True)
     return ws

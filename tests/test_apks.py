@@ -47,3 +47,12 @@ def test_install_uses_r_flag():
     a = FakeAdb()
     assert install_apk(a, Path("x.apk")) is True
     assert any("install -r" in c for c in a.calls)
+
+def test_app_workspace_rejects_escape():
+    class C:
+        workspace = Path("C:/ws")
+    import pytest as _p
+    from mph.errors import HarnessError as HE
+    for bad in ("..", "../x", "a/b", "C:/evil", "a\b", ""):
+        with _p.raises(HE):
+            app_workspace(C(), bad)

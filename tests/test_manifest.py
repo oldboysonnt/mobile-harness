@@ -57,3 +57,21 @@ def test_manifest_malformed_raises(tmp_path):
     (out / "AndroidManifest.xml").write_text("<manifest><broken", encoding="utf-8")
     with pytest.raises(HarnessError):
         parse_manifest(out.parent)
+
+def test_parse_activity_alias_and_authorities(tmp_path):
+    M2 = MANIFEST.replace(
+        '<provider android:name=".Pvd" android:authorities="com.example.pvd"/>',
+        '<provider android:name=".Pvd" android:authorities="com.example.pvd"/>\n'
+        '    <activity-alias android:name=".Proxy" android:exported="true"\n'
+        '        android:targetActivity=".Real">\n'
+        '      <intent-filter><data android:scheme="payapp"/></intent-filter>\n'
+        '    </activity-alias>')
+    out = tmp_path / "jadx-out" / "resources"
+    out.mkdir(parents=True)
+    (out / "AndroidManifest.xml").write_text(M2, encoding="utf-8")
+    m = parse_manifest(out.parent)
+    assert ".Proxy" in m["exported"]["aliases"]
+    assert m["alias_targets"].get(".Proxy") == ".Real"
+    assert m["provider_authorities"].get(".Pvd") == "com.example.pvd"
+    dl = [d for d in m["deeplinks"] if d["component"] == ".Proxy"]
+    assert dl and "payapp" in dl[0]["schemes"]
