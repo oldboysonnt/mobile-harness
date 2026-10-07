@@ -26,16 +26,22 @@ def _ramdisk_path(cfg) -> Path:
 
 
 def root_via_rootavd(cfg, rootavd_dir: Path, runner=None) -> bool:
-    """Patch Magisk vào ramdisk; True khi 'All done'/'already'."""
-    git_bash = getattr(cfg, "git_bash", "bash")
-    sdk = getattr(cfg, "sdk", None)
-    ramdisk = _ramdisk_path(cfg)
-    cmd = build_root_cmd(Path(git_bash).as_posix(), Path(rootavd_dir), ramdisk)
-    env = {**dict(os.environ)}
-    if sdk is not None:
-        env["ANDROID_HOME"] = str(sdk)
-    code, out, err = (runner or _run)(cmd, env=env, timeout=900,
-                                      cwd=str(rootavd_dir))
+    """Patch Magisk vào ramdisk; True khi 'All done'/'already'.
+
+    rootAVD muốn tham số là đường dẫn TƯƠNG ĐỐI từ ANDROID_HOME (dạng
+    system-images/.../ramdisk.img) — chạy với cwd=ANDROID_HOME.
+    """
+    git_bash = Path(getattr(cfg, "git_bash", "bash"))
+    sdk = Path(getattr(cfg, "sdk", "."))
+    parts = str(getattr(cfg, "image", "")).split(";")
+    rel = "/".join(parts[1:]) if parts[0] == "system-images" else None
+    if rel is None:
+        raise HarnessError("cfg.image khong phai system-images",
+                            hint=str(getattr(cfg, "image", "")))
+    cmd = [git_bash.as_posix(), str(Path(rootavd_dir) / "rootAVD.sh"),
+           f"system-images/{rel}/ramdisk.img"]
+    env = {**dict(os.environ), "ANDROID_HOME": sdk.as_posix()}
+    code, out, err = (runner or _run)(cmd, env=env, timeout=900, cwd=str(sdk))
     if "All done" in out or "already" in out.lower():
         return True
     raise HarnessError("rootAVD that bai", hint=(err[-400:] or out[-400:]))

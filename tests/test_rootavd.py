@@ -44,8 +44,9 @@ def test_root_fail_sets_env_and_cwd(tmp_path):
     except Exception:
         raised = True
     assert raised
-    assert r.last_env["ANDROID_HOME"] == str(cfg.sdk)
-    assert r.last_cwd == str(Path("t/rootavd"))
+    assert r.last_env["ANDROID_HOME"] == cfg.sdk.as_posix()
+    assert r.last_cwd == str(cfg.sdk)          # chạy từ ANDROID_HOME
+    assert r.last_cmd[2] == "system-images/android-34/google_apis/x86_64/ramdisk.img"
 
 def test_magisk_present():
     class R:

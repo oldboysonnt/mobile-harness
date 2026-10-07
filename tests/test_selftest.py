@@ -112,6 +112,7 @@ def test_p1_corrupt_der_structured(tmp_path):
 def test_p2_extends_p1(tmp_path):
     from mph.selftest import run_p2
     class DepsP2(DepsFail):
+        device_route_probe = staticmethod(lambda adb, port: True)  # P1 xanh
         magisk_present = staticmethod(lambda adb: True)
         integrity_status = staticmethod(lambda adb, cfg: {
             "shamiko": True, "pif": True, "zygisk": True,
