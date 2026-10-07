@@ -15,7 +15,9 @@ class FakeAdb:
     def run(self, *args, timeout=60, device=True):
         self.calls.append(" ".join(args))
         ok = self.su_ok or not (args[0] == "shell" and "su" in args[:2])
-        return type("R", (), {"ok": ok, "out": "", "err": "", "code": 0 if ok else 1})()
+        out = "29.4:M" if ("-v" in args and self.su_ok) else ""
+        return type("R", (), {"ok": ok, "out": out, "err": "",
+                              "code": 0 if ok else 1})()
 
 def test_magisk_missing_fails_with_hint():
     with pytest.raises(HarnessError) as e:
