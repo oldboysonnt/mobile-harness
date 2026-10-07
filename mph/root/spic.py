@@ -6,7 +6,7 @@ from ..device import screen
 from ..errors import HarnessError
 
 _LEVELS = ["MEETS_STRONG_INTEGRITY", "MEETS_DEVICE", "MEETS_BASIC"]
-_PKG = "com.henrichs.spic"  # SPIC app package (herzhenr/spic-android)
+_PKG = "com.henrikherzig.playintegritychecker"  # SPIC (herzhenr/spic-android)
 _ACTIVITY = f"{_PKG}/MainActivity"  # integration sửa nếu launchable khác
 
 
@@ -53,4 +53,9 @@ def integrity_check(adb, cfg, ws: Path) -> dict:
         screen.screenshot(adb, shot)
     except HarnessError:
         shot = None
+    # SPIC là app Compose — uiautomator không đọc text; verdict trong PIXELS:
+    # trả SEE_SCREENSHOT + evidence để AI/người đọc (MEETS_BASIC đã xác nhận
+    # bằng mắt 2026-10-08 trên stack PIF này).
+    if verdict == "NO_VERDICT" and shot is not None:
+        verdict = "SEE_SCREENSHOT"
     return {"verdict": verdict, "evidence": str(shot) if shot else ""}
