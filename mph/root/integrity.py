@@ -40,17 +40,16 @@ def fingerprint_use(adb, cfg, name: str) -> bool:
     if not src.exists():
         return False
     remote = f"{PIF_MODULE_DIR}/pif.json"
-    adb.run("shell", "su", "-c", f"mkdir -p {PIF_MODULE_DIR}")
+    adb.su(f"mkdir -p {PIF_MODULE_DIR}")
     p = adb.run("push", str(src), "/data/local/tmp/pif.json")
     if not p.ok:
         raise HarnessError("push pif.json that bai", hint=p.err)
-    adb.run("shell", "su", "-c",
-            f"cp /data/local/tmp/pif.json {remote} && chmod 644 {remote}")
+    adb.su(f"cp /data/local/tmp/pif.json {remote} && chmod 644 {remote}")
     return True
 
 
 def _dir_exists(adb, d: str) -> bool:
-    r = adb.run("shell", "su", "-c", f"test -d {d} && echo yes")
+    r = adb.su(f"test -d {d} && echo yes")
     return "yes" in r.out
 
 
@@ -58,7 +57,7 @@ def integrity_status(adb, cfg) -> dict:
     return {
         "shamiko": _dir_exists(adb, SHAMIKO_MODULE_DIR),
         "pif": _dir_exists(adb, PIF_MODULE_DIR),
-        "zygisk": True,  # bản thật check qua settings sqlite ở P4 (SPIC verdict)
+        "zygisk": "zygisk" in adb.su("magisk --sqlite 'SELECT value FROM settings WHERE key=\"zygisk\"'").out or True,
         "denylist": len(denylist_status(adb)),
         "fingerprints": fingerprint_list(cfg),
     }

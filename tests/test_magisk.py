@@ -12,6 +12,9 @@ class FakeAdb:
         self.su_ok = su_ok
         self.calls = []
 
+    def su(self, cmd, timeout=60):
+        return self.run("shell", f"su -c {cmd}", timeout=timeout)
+
     def run(self, *args, timeout=60, device=True):
         self.calls.append(" ".join(args))
         ok = self.su_ok or not (args[0] == "shell" and "su" in args[:2])

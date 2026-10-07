@@ -10,6 +10,9 @@ class FakeAdb:
     def __init__(self):
         self.calls = []
 
+    def su(self, cmd, timeout=60):
+        return self.run("shell", f"su -c {cmd}", timeout=timeout)
+
     def run(self, *args, timeout=60, device=True):
         self.calls.append(" ".join(args))
         return type("R", (), {"ok": True, "out": "", "err": "", "code": 0})()

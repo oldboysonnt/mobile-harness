@@ -56,7 +56,7 @@ def frida_start(adb, strongr_xz: Path, alias: str = "sysmondd",
     if not p.ok:
         raise HarnessError("push frida-server that bai", hint=p.err)
     adb.run("shell", "chmod", "755", remote)
-    adb.run("shell", "su", "-c", f"{remote} -l 127.0.0.1:{port} >/dev/null 2>&1 &")
+    adb.su(f"{remote} -l 127.0.0.1:{port} >/dev/null 2>&1 &")
     if not _wait_frida_ps(adb):
         raise HarnessError(
             "frida-server khong phan hoi sau 10s",
@@ -65,5 +65,5 @@ def frida_start(adb, strongr_xz: Path, alias: str = "sysmondd",
 
 
 def frida_stop(adb, alias: str) -> bool:
-    adb.run("shell", "su", "-c", f"pkill -f {sanitize_alias(alias)}")
+    adb.su(f"pkill -f {sanitize_alias(alias)}")
     return True
