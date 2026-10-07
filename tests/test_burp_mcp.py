@@ -40,7 +40,7 @@ class Stub(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def stub_server():
     srv = ThreadingHTTPServer(("127.0.0.1", 0), Stub)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
