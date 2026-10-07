@@ -36,3 +36,53 @@ def type_text(adb, s: str) -> None:
 
 def key(adb, keycode: str) -> None:
     adb.run("shell", "input", "keyevent", keycode)
+
+
+# --- screenshot + ui dump (Task 2) ---
+import re as _re
+from pathlib import Path
+
+_PNG = b"\x89PNG"
+
+
+def _screencap_raw(adb) -> tuple[int, bytes]:
+    return adb.run_raw("exec-out", "screencap", "-p", timeout=30)
+
+
+def screenshot(adb, dest: Path) -> dict:
+    """Chụp PNG binary-safe + meta tọa độ (screen = kích thước thật)."""
+    code, data = _screencap_raw(adb)
+    if code != 0 or not data.startswith(_PNG):
+        raise HarnessError("screencap that bai / khong phai PNG",
+                            hint=f"code={code} bytes={len(data)}")
+    dest = Path(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(data)
+    return {"path": str(dest), "screen": list(wm_size(adb)),
+            "png_bytes": len(data)}
+
+
+def ui_dump(adb, dest: Path) -> Path:
+    adb.run("shell", "uiautomator", "dump", "/sdcard/ui.xml", timeout=30)
+    dest = Path(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    p = adb.run("pull", "/sdcard/ui.xml", str(dest), timeout=30)
+    if not p.ok or not dest.exists():
+        raise HarnessError("uiautomator dump that bai", hint=p.err)
+    return dest
+
+
+_BOUNDS_RE = _re.compile(r"\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]")
+
+
+def find_bounds(xml: Path, text: str) -> tuple[int, int] | None:
+    """Center của node đầu có text khớp chính xác."""
+    raw = Path(xml).read_text(encoding="utf-8", errors="replace")
+    for m in _re.finditer(r"<node[^>]*>", raw):
+        node = m.group(0)
+        if f'text="{text}"' in node:
+            b = _BOUNDS_RE.search(node)
+            if b:
+                x1, y1, x2, y2 = map(int, b.groups())
+                return (x1 + x2) // 2, (y1 + y2) // 2
+    return None
