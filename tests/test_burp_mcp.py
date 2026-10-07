@@ -1,7 +1,6 @@
 # tests/test_burp_mcp.py
 import json
 import threading
-import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
@@ -9,18 +8,18 @@ from mph.errors import HarnessError
 from mph.proxy.burp_mcp import BurpMcp
 
 class Stub(BaseHTTPRequestHandler):
-    """Mô phỏng MCP của Burp: POST trả 202, response đẩy qua SSE stream."""
+    """Stub MCP tối giản: /sse phát endpoint rồi đóng; response qua body POST.
+
+    Không giữ connection nào mở — tránh reset loopback đa luồng trên Windows.
+    Client thật đọc body trước khi chờ SSE nên hành vi này tương thích.
+    """
 
     def do_GET(self):
         if self.path == "/sse":
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
             self.end_headers()
-            self.server.sse_conn = self  # per-server, không dùng biến class
             self.wfile.write(b"event: endpoint\ndata: /mcp?sessionId=abc\n\n")
-            self.wfile.flush()
-            while not getattr(self.server, "please_stop", False):
-                time.sleep(0.1)
 
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
@@ -37,13 +36,6 @@ class Stub(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
-        try:  # đẩy qua SSE nếu client còn giữ stream (best-effort)
-            self.server.sse_conn.wfile.write(
-                f"event: message\ndata: {json.dumps(resp)}\n\n".encode()
-            )
-            self.server.sse_conn.wfile.flush()
-        except (AttributeError, OSError):
-            pass
 
     def log_message(self, *a):
         pass
@@ -51,16 +43,8 @@ class Stub(BaseHTTPRequestHandler):
 @pytest.fixture()
 def stub_server():
     srv = ThreadingHTTPServer(("127.0.0.1", 0), Stub)
-    srv.sse_conn = None
-    srv.please_stop = False
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     yield srv.server_address[1]
-    srv.please_stop = True
-    if srv.sse_conn is not None:
-        try:
-            srv.sse_conn.connection.close()
-        except OSError:
-            pass
     srv.shutdown()
 
 def test_call_roundtrip(stub_server):
