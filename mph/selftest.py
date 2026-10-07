@@ -215,7 +215,7 @@ def run_p2(cfg, deps: "Deps | None" = None) -> tuple[bool, list]:
     return p1_ok and integ_ok and frida_ok, rows
 
 
-P3_APP = "com.android.deskclock"
+P3_APP = "com.google.android.deskclock"
 
 
 def _step_row(rows, name, fn):
