@@ -28,7 +28,8 @@ def test_install_image_command(tmp_path):
     assert any("--licenses" in j for j in joined)
     assert any("android-34" in j for j in joined)
 
-def test_create_avd_force(tmp_path):
+def test_create_avd_force(tmp_path, monkeypatch):
+    monkeypatch.setattr("mph.bootstrap.Path.home", lambda: tmp_path)  # chưa có ini
     calls = []
     def runner(cmd, timeout=None, **kw):
         calls.append(cmd); return (0, "ok", "")
@@ -36,3 +37,16 @@ def test_create_avd_force(tmp_path):
     create_avd(tmp_path, "mph_avd", "system-images;android-34;google_apis;x86_64", runner)
     assert calls[0][1:3] == ["create", "avd"] and "avdmanager.bat" in calls[0][0]
     assert all("--force" in c for c in calls) and len(calls) == 2
+
+def test_create_avd_skips_existing(tmp_path, monkeypatch):
+    """AVD đã tồn tại (đã root/snapshot) tuyệt đối không bị tạo lại."""
+    monkeypatch.setattr("mph.bootstrap.Path.home",
+                        lambda: tmp_path)
+    avd_home = tmp_path / ".android" / "avd"
+    avd_home.mkdir(parents=True)
+    (avd_home / "mph_avd.ini").write_text("avd.ini.encoding=UTF-8\n", encoding="utf-8")
+    calls = []
+    def runner(cmd, timeout=None, **kw):
+        calls.append(cmd); return (0, "ok", "")
+    create_avd(tmp_path, "mph_avd", "system-images;android-34;google_apis;x86_64", runner)
+    assert calls == []  # skip — bảo vệ AVD đã root + snapshots

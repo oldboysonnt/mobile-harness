@@ -77,8 +77,12 @@ def install_image(sdk: Path, image: str, runner=subprocess.run) -> None:
         )
 
 
-def create_avd(sdk: Path, name: str, image: str, runner=subprocess.run) -> None:
-    """Tạo (hoặc tạo lại nhờ --force) AVD workhorse."""
+def create_avd(sdk: Path, name: str, image: str, runner=subprocess.run,
+               force: bool = False) -> None:
+    """Tạo AVD workhorse; BỎ QUA nếu đã tồn tại (bảo vệ AVD đã root/snapshot)."""
+    ini = Path.home() / ".android" / "avd" / f"{name}.ini"
+    if ini.exists() and not force:
+        return
     avdm = str(Path(sdk) / "cmdline-tools" / "latest" / "bin" / "avdmanager.bat")
     r = runner(
         [avdm, "create", "avd", "-n", name, "-k", image, "-d", "pixel_6", "--force"],
