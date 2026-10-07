@@ -23,12 +23,17 @@ class BurpMcp:
         threading.Thread(target=self._sse_reader, daemon=True).start()
 
     def _sse_reader(self) -> None:
-        req = urllib.request.Request(
-            self.base + "/sse", headers={"Accept": "text/event-stream"}
-        )
-        try:
-            resp = urllib.request.urlopen(req, timeout=120)
-        except OSError:
+        resp = None
+        for _ in range(3):  # Burp có thể mở port trễ — thử lại
+            req = urllib.request.Request(
+                self.base + "/sse", headers={"Accept": "text/event-stream"}
+            )
+            try:
+                resp = urllib.request.urlopen(req, timeout=120)
+                break
+            except OSError:
+                time.sleep(1.0)
+        if resp is None:
             return
         ev, data = None, []
         for raw in resp:
@@ -84,6 +89,7 @@ class BurpMcp:
             try:
                 msg = json.loads(raw)
                 if msg.get("id") == self._id:
+                    self._raise_on_error(msg)
                     return msg
             except ValueError:
                 pass
@@ -101,11 +107,20 @@ class BurpMcp:
             if msg.get("id") == self._id:
                 for s in stash:
                     self.events.put(s)
+                self._raise_on_error(msg)
                 return msg
             stash.append((ev, data))
         for s in stash:
             self.events.put(s)
         raise HarnessError(f"burp mcp timeout: {method}", hint="kiem tra Burp con chay")
+
+    @staticmethod
+    def _raise_on_error(msg: dict) -> None:
+        if isinstance(msg.get("error"), dict):
+            raise HarnessError(
+                f"burp mcp error: {msg['error'].get('message', msg['error'])}",
+                hint=f"code={msg['error'].get('code')}",
+            )
 
     def call(self, tool: str, arguments: dict, timeout: float = 30.0) -> dict:
         """Gọi một MCP tool của Burp, trả result."""
