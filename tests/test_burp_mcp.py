@@ -64,22 +64,34 @@ def test_no_endpoint_server():
     finally:
         srv.shutdown()
 
+class _BodyResp:
+    def __init__(self, obj):
+        self._data = json.dumps(obj).encode()
+    def read(self):
+        return self._data
+    def __enter__(self):
+        return self
+    def __exit__(self, *a):
+        return False
+
+class _SseResp:
+    def __init__(self, lines):
+        self._data = ("\n\n".join(lines) + "\n\n").encode()
+    def __iter__(self):
+        return iter(self._data.splitlines(keepends=True))
+    def __enter__(self):
+        return self
+    def __exit__(self, *a):
+        return False
+
 def _body_resp(obj):
-    data = json.dumps(obj).encode()
-    r = type("R", (), {"read": lambda s: data})()
-    r.__enter__ = lambda s: s
-    r.__exit__ = lambda s, *a: False
-    return r
+    return _BodyResp(obj)
 
 def _sse_resp(lines):
-    data = ("\n\n".join(lines) + "\n\n").encode()
-    r = type("R", (), {})()
-    def iter_lines():
-        yield from data.splitlines(keepends=True)
-    r.__iter__ = lambda s: iter_lines()
-    r.__enter__ = lambda s: s
-    r.__exit__ = lambda s, *a: False
-    return r
+    return _SseResp(lines)
+
+def _url_of(u):
+    return getattr(u, "full_url", str(u))
 
 def test_rpc_error_surfaced(monkeypatch):
     import mph.proxy.burp_mcp as M
@@ -87,7 +99,7 @@ def test_rpc_error_surfaced(monkeypatch):
     calls = []
     def fake_urlopen(url, timeout=None, **kw):
         calls.append(url)
-        if "/sse" in url:
+        if "/sse" in _url_of(url):
             return _sse_resp(["event: endpoint", "data: /mcp?sid=1"])
         return _body_resp({"jsonrpc": "2.0", "id": 1,
                            "error": {"code": -32000, "message": "boom"}})
@@ -102,7 +114,7 @@ def test_sse_reader_reconnects(monkeypatch):
     n = []
     def fake_urlopen(url, timeout=None, **kw):
         n.append(url)
-        if "/sse" in url:
+        if "/sse" in _url_of(url):
             if len(n) < 3:            # 2 lần đầu Burp chưa mở port
                 raise OSError("refused")
             return _sse_resp(["event: endpoint", "data: /mcp?sid=1"])
