@@ -29,6 +29,7 @@ def test_integrity_install_orchestrates(tmp_path, monkeypatch):
     monkeypatch.setattr(I, "zygisk_enable", fake.zygisk_enable)
     monkeypatch.setattr(I, "denylist_add", fake.denylist_add)
     monkeypatch.setattr(I, "install_module", fake.install_module)
+    monkeypatch.setattr(I, "hide_emu_props", lambda adb: True)
     a = FakeAdb()
 
     class C:
