@@ -33,6 +33,17 @@ def test_frida_start_pushes_alias_and_runs(tmp_path, monkeypatch):
     assert "/data/local/tmp/sysmondd" in joined and "27047" in joined
     assert remote == "/data/local/tmp/sysmondd"
 
+def test_unpack_xz_creates_bin(tmp_path):
+    import lzma
+    payload = b"ELF_FAKE_BINARY" * 100
+    xz = tmp_path / "server.xz"
+    xz.write_bytes(lzma.compress(payload))
+    from mph.frida.server import unpack_strongr
+    out = unpack_strongr(xz, tmp_path)
+    assert out.name == "frida-server-bin"
+    assert out.read_bytes() == payload
+    assert unpack_strongr(xz, tmp_path) == out  # idempotent
+
 def test_frida_stop_kills_alias():
     a = FakeAdb()
     assert frida_stop(a, "sysmondd") is True

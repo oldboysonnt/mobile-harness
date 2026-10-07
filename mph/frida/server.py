@@ -17,15 +17,18 @@ def sanitize_alias(alias: str) -> str:
 
 
 def unpack_strongr(xz_path: Path, out_dir: Path) -> Path:
-    """Giải nén frida-server .xz (tên giữ từ thời strongR — engine-agnostic)."""
+    """Giải nén frida-server .xz bằng lzma stdlib (GNU tar trên Git Bash
+    không đọc được định dạng này)."""
+    import lzma
     out = Path(out_dir) / "frida-server-bin"
     if out.exists():
         return out
     Path(out_dir).mkdir(parents=True, exist_ok=True)
-    r = subprocess.run(["tar", "-xf", str(xz_path), "-C", str(out_dir)],
-                       capture_output=True, text=True, timeout=300)
-    if r.returncode != 0:
-        raise HarnessError("giai nen strongr.xz that bai", hint=r.stderr)
+    try:
+        data = lzma.decompress(Path(xz_path).read_bytes())
+    except lzma.LZMAError as e:
+        raise HarnessError("giai nen frida-server.xz that bai", hint=str(e)) from e
+    out.write_bytes(data)
     return out
 
 
