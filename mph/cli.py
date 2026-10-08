@@ -19,6 +19,7 @@ from .device import avd as avd_mod
 from .device.adb import Adb
 from .doctor import Probes, check_env
 from .frida import scripts as frida_scripts
+from .device import screen as screen_mod
 from .frida.server import frida_start as frida_server_start
 from .frida.server import frida_stop as frida_server_stop
 from .proxy import burp as burp_mod
@@ -27,6 +28,7 @@ from .proxy import route as route_mod
 from .re import apks as apks_mod, index as index_mod, jadx as jadx_mod
 from .re import manifest as manifest_mod
 from .root.brutdroid import brutdroid_vendor
+from .root import spic as spic_mod
 from .root.integrity import fingerprint_use, integrity_install, integrity_status
 from .root.rootavd import root_via_rootavd
 from .vendor import vendor_all
@@ -59,6 +61,8 @@ apks_app = typer.Typer(help="APK: list/pull/install")
 re_app = typer.Typer(help="Reverse engineering: jadx/manifest/index")
 app.add_typer(apks_app, name="apks")
 app.add_typer(re_app, name="re")
+screen_app = typer.Typer(help="Dieu khien man hinh (tọa độ thật)")
+app.add_typer(screen_app, name="screen")
 
 
 @app.command()
@@ -150,7 +154,10 @@ def selftest(phase: str = typer.Option("p1", help="p1 = HTTPS qua Burp; p2 = + m
     from .selftest import run_p1, run_p2
 
     cfg = _load_config()
-    if phase == "p3":
+    if phase == "p4":
+        from .selftest import run_p4
+        ok, rows = run_p4(cfg)
+    elif phase == "p3":
         from .selftest import run_p3
         ok, rows = run_p3(cfg)
     elif phase == "p2":
@@ -295,3 +302,62 @@ def re_index(app_name: str):
     print(json.dumps(index_mod.ensure_indexed(cfg, ws / "jadx-out"),
                      ensure_ascii=False))
 
+
+
+@screen_app.command("screenshot")
+def screen_screenshot():
+    cfg = _load_config()
+    serial = avd_mod.avd_serial(cfg.avd_name)
+    import time as _t
+    dest = Path(cfg.workspace) / "_shared" / "shots" / (
+        "screen-" + _t.strftime("%H%M%S") + ".png")
+    print(json.dumps(screen_mod.screenshot(
+        Adb(serial=serial) if serial else Adb(), dest)))
+
+
+@screen_app.command("tap")
+def screen_tap(x: int, y: int):
+    serial = avd_mod.avd_serial()
+    screen_mod.tap(Adb(serial=serial) if serial else Adb(), x, y)
+    print("tapped", x, y)
+
+
+@screen_app.command("swipe")
+def screen_swipe(x1: int, y1: int, x2: int, y2: int,
+                 ms: int = typer.Option(300)):
+    serial = avd_mod.avd_serial()
+    screen_mod.swipe(Adb(serial=serial) if serial else Adb(), x1, y1, x2, y2, ms)
+    print("swiped")
+
+
+@screen_app.command("type")
+def screen_type(text: str):
+    serial = avd_mod.avd_serial()
+    screen_mod.type_text(Adb(serial=serial) if serial else Adb(), text)
+    print("typed")
+
+
+@screen_app.command("key")
+def screen_key(keycode: str):
+    serial = avd_mod.avd_serial()
+    screen_mod.key(Adb(serial=serial) if serial else Adb(), keycode)
+    print("key", keycode)
+
+
+@screen_app.command("ui")
+def screen_ui():
+    cfg = _load_config()
+    serial = avd_mod.avd_serial()
+    dest = Path(cfg.workspace) / "_shared" / "ui.xml"
+    print(screen_mod.ui_dump(Adb(serial=serial) if serial else Adb(), dest))
+
+
+@integrity_app.command("check")
+def integrity_check_cmd():
+    """Đo Play Integrity verdict thật bằng SPIC + evidence screenshot."""
+    cfg = _load_config()
+    serial = avd_mod.avd_serial()
+    r = spic_mod.integrity_check(
+        Adb(serial=serial) if serial else Adb(), cfg,
+        Path(cfg.workspace) / "_shared" / "spic")
+    print(json.dumps(r, ensure_ascii=False))

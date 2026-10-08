@@ -1,4 +1,5 @@
 # tests/test_selftest.py
+from pathlib import Path
 import datetime
 
 from cryptography import x509
@@ -152,3 +153,41 @@ def test_p3_green(tmp_path):
     names = [r[0] for r in rows]
     assert ok is True
     assert {"pull", "jadx", "manifest", "index"} <= set(names)
+
+def test_p4_green(tmp_path):
+    from mph.selftest import run_p4
+    class DepsP4(DepsFail):
+        device_route_probe = staticmethod(lambda adb, port: True)
+        @staticmethod
+        def device_https_probe(adb, port):
+            return "nocurl", "skipped"
+        magisk_present = staticmethod(lambda adb: True)
+        integrity_status = staticmethod(lambda adb, cfg: {"shamiko": True,
+            "pif": True, "zygisk": True, "denylist": 1, "fingerprints": []})
+        frida_start = staticmethod(lambda adb, cfg: "/x")
+        frida_health = staticmethod(lambda adb: True)
+        unpin_smoke = staticmethod(lambda adb, cfg: (0, ""))
+        pull_apk = staticmethod(lambda adb, pkg, dest: dest / f"{pkg}.apk")
+        @staticmethod
+        def decompile(apk, out):
+            return out
+        @staticmethod
+        def parse_manifest(jadx_out):
+            return {"package": "x", "exported": {}, "deeplinks": [],
+                    "permissions": []}
+        ensure_indexed = staticmethod(lambda cfg, out: {"status": "ok"})
+        wm_size = staticmethod(lambda adb: (1080, 2400))
+        @staticmethod
+        def screenshot(adb, dest):
+            Path(str(dest)).parent.mkdir(parents=True, exist_ok=True)
+            Path(str(dest)).write_bytes(b"\x89PNG fake")
+            return {"path": str(dest), "screen": [1080, 2400], "png_bytes": 9}
+        ui_dump = staticmethod(lambda adb, dest: Path(str(dest)))
+        tap_smoke = staticmethod(lambda adb: "HOME+tap ok")
+        spic_check = staticmethod(lambda adb, cfg:
+                                  {"verdict": "MEETS_BASIC", "evidence": "x.png"})
+    ok, rows = run_p4(FakeCfg(tmp_path), deps=DepsP4)
+    names = [r[0] for r in rows]
+    assert ok is True
+    assert {"wm-size", "screenshot", "ui-dump", "tap-smoke",
+            "spic-verdict"} <= set(names)

@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "mph": {
+      "command": "python",
+      "args": [
+        "C:\\Users\\sonnt\\Documents\\Mobile\\mobile-harness\\mcp_server\\server.py"
+      ]
+    }
+  }
+}

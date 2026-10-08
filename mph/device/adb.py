@@ -68,6 +68,13 @@ class Adb:
         import shlex
         return self.run("shell", f"su -c {shlex.quote(cmd)}", timeout=timeout)
 
+    def run_raw(self, *args: str, timeout: float = 60) -> tuple[int, bytes]:
+        """Chạy adb nhận binary stdout (screencap PNG) — không text pipe."""
+        cmd = ([self.adb_path]
+               + (["-s", self.serial] if self.serial else []) + list(args))
+        p = subprocess.run(cmd, capture_output=True, timeout=timeout)
+        return p.returncode, p.stdout
+
     @staticmethod
     def devices(adb_path: str = "adb") -> list[tuple[str, str]]:
         """Trả [(serial, state)] từ `adb devices`."""
