@@ -23,10 +23,13 @@ class BurpMcp:
         threading.Thread(target=self._sse_reader, daemon=True).start()
 
     def _sse_reader(self) -> None:
-        """Đọc SSE endpoint; retry cả connect lẫn mid-stream reset (Windows)."""
+        """Đọc SSE endpoint; retry cả connect lẫn mid-stream reset (Windows).
+
+        KHÔNG return khi đã có endpoint: stream có thể reset/cạn giữa chừng
+        (Windows loopback) và phải đọc tiếp nhận response. Chỉ dừng khi hết
+        số lần retry (bug 2026-10-09: reader chết ngay sau endpoint đầu).
+        """
         for _ in range(5):
-            if self._endpoint:
-                return
             req = urllib.request.Request(
                 self.base + "/sse", headers={"Accept": "text/event-stream"}
             )
@@ -46,8 +49,10 @@ class BurpMcp:
                     elif line == "" and (ev or data):
                         self.events.put((ev, "\n".join(data)))
                         if ev == "endpoint":
+                            # KHÔNG return ở đây — thread phải tiếp tục đọc
+                            # SSE, nếu không mọi message response sau endpoint
+                            # không ai nhận → tools/call timeout (bug 2026-10-09)
                             self._endpoint = "\n".join(data)
-                            return
                         ev, data = None, []
             except OSError:
                 time.sleep(0.5)  # reset giữa chừng → kết nối lại đọc từ đầu

@@ -50,17 +50,31 @@ def wait_port(port: int, timeout: float = 60, poller=None) -> bool:
 
 
 def _probe(port: int) -> bool:
+    """HTTP-aware: com.docker.backend chiếm [::]:8080 dual-stack — TCP connect
+    thành công nhưng GET bị reset. Chỉ coi là Burp khi có dòng status HTTP."""
     with socket.socket() as s:
-        s.settimeout(1.0)
-        return s.connect_ex(("127.0.0.1", port)) == 0
+        s.settimeout(2.0)
+        if s.connect_ex(("127.0.0.1", port)) != 0:
+            return False
+        try:
+            s.sendall(b"GET / HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n")
+            data = s.recv(16)
+        except OSError:
+            return False
+        return bool(data) and data.startswith(b"HTTP/")
 
 
 def build_cmd(cfg, project_file: Path, config_file: Path) -> tuple[list[str], str | None]:
-    """Dựng lệnh launch Burp; trả (cmd, cwd|None)."""
+    """Dựng lệnh launch Burp; trả (cmd, cwd|None).
+
+    Dạng `--option=value` (không phải `--option value`): qua shell trung gian
+    (cmd/wscript) picocli của Burp 2026 mất value ở dạng space (thực nghiệm
+    2026-10-09: "Expected a value for option project-file").
+    """
     jar = Path(cfg.burp_exe)
     burp_args = [
-        "--project-file", str(project_file),
-        "--config-file", str(config_file),
+        f"--project-file={project_file}",
+        f"--config-file={config_file}",
         "--auto-repair",
     ]
     if jar.suffix == ".jar":
@@ -87,9 +101,18 @@ def build_vbs_cmd(cfg) -> list[str]:
 
 def burp_start(cfg, project_file: Path, config_file: Path,
                popen=subprocess.Popen) -> int:
-    """Start Burp qua burp.vbs (ruling 2026-10-08: Burp 2026 wizard chặn
-    java-trực-tiếp; vbs mở với license + listener đã lưu trong user config).
-    Idempotent (port đã mở → -1). Trả pid."""
+    """Start Burp không cần click wizard (fix 2026-10-09).
+
+    Thực nghiệm máy dev (Burp Pro 2026.1.1 + keygen):
+    - burp.vbs / java không `--project-file` → wizard "chọn project" chờ
+      click mãi, listener không bao giờ mở (exit-code 1 của chain).
+    - java + `--project-file=` (dạng `=`) → bỏ wizard, vào thẳng project;
+      Burp mở listener mặc định 127.0.0.1:8080 bất kể `--config-file`
+      (request_listeners.running không áp qua config-file lẫn
+      user-config-file — đã thử all_interfaces/loopback_only/project mới).
+      → mph.toml đặt [proxy] port = 8080 (IPv4 trống; wslrelay chỉ IPv6 ::1).
+    Idempotent (port đã mở → -1). Trả pid.
+    """
     if _probe(cfg.proxy_port):
         return -1
     if cfg.burp_exe is None:
@@ -99,8 +122,11 @@ def burp_start(cfg, project_file: Path, config_file: Path,
     Path(config_file).write_text(
         json.dumps(listener_config(cfg.proxy_port)), encoding="utf-8"
     )
-    cmd = build_vbs_cmd(cfg)
-    proc = popen(cmd, cwd=str(Path(cfg.burp_bin)),
+    if Path(cfg.burp_exe).suffix == ".jar":
+        cmd, cwd = build_cmd(cfg, Path(project_file), Path(config_file))
+    else:
+        cmd, cwd = build_vbs_cmd(cfg), str(Path(cfg.burp_bin))
+    proc = popen(cmd, cwd=cwd,
                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if not wait_port(cfg.proxy_port, timeout=240):
         raise HarnessError(

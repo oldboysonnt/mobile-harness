@@ -9,9 +9,11 @@ name = "mph_avd"
 image = "system-images;android-34;google_apis;x86_64"
 
 [proxy]
-# 8080 trên máy này bị Docker Desktop/WSL chiếm cố định → dùng 8082
-# (code default vẫn 8080 theo spec; file này override cho máy dev)
-port = 8082
+# 8080 = listener mặc định Burp mở khi launch headless (--project-file=).
+# Burp 2026.1 bỏ qua request_listeners qua --config-file → phải dùng đúng
+# port mặc định đó. Trước đây tưởng 8080 bị Docker/WSL chiếm: thực tế
+# wslrelay chỉ giữ IPv6 ::1; IPv4 127.0.0.1:8080 trống (Burp bind được).
+port = 8080
 burp_mcp_port = 9876
 
 [workspace]
