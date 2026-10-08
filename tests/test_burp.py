@@ -57,3 +57,11 @@ def test_build_cmd_exe_launcher(tmp_path):
         proxy_port = 8080
     cmd, cwd = build_cmd(FakeCfg(), tmp_path / "p.burp", tmp_path / "c.json")
     assert cmd[0] == str(FakeCfg.burp_exe) and cwd is None
+
+def test_vbs_cmd_shape(tmp_path):
+    from mph.proxy.burp import build_vbs_cmd
+    class FakeCfg:
+        burp_bin = tmp_path
+    cmd = build_vbs_cmd(FakeCfg())
+    assert cmd[0].endswith("wscript.exe")
+    assert any(str(tmp_path / "burp.vbs") in a for a in cmd)

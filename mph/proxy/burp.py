@@ -76,25 +76,36 @@ def build_cmd(cfg, project_file: Path, config_file: Path) -> tuple[list[str], st
     return [str(jar)] + burp_args, None
 
 
+def build_vbs_cmd(cfg) -> list[str]:
+    """Launcher chuẩn của máy: wscript burp.vbs (license/settings đã nhớ)."""
+    vbs = Path(cfg.burp_bin) / "burp.vbs"
+    if not vbs.exists():
+        raise HarnessError(f"khong thay {vbs}",
+                            hint="sua mph.toml [paths] burp_bin")
+    return ["wscript.exe", str(vbs)]
+
+
 def burp_start(cfg, project_file: Path, config_file: Path,
                popen=subprocess.Popen) -> int:
-    """Start Burp; idempotent (port đã mở → -1). Trả pid."""
+    """Start Burp qua burp.vbs (ruling 2026-10-08: Burp 2026 wizard chặn
+    java-trực-tiếp; vbs mở với license + listener đã lưu trong user config).
+    Idempotent (port đã mở → -1). Trả pid."""
     if _probe(cfg.proxy_port):
         return -1
-    if cfg.burp_exe is None or not Path(cfg.burp_exe).exists():
-        raise HarnessError(
-            f"burp exe khong ton tai: {getattr(cfg, 'burp_exe', None)}",
-            hint="dat BURP_PATH hoac sua mph.toml [paths]",
-        )
+    if cfg.burp_exe is None:
+        raise HarnessError("khong tim thay Burp",
+                            hint="dat BURP_PATH hoac sua mph.toml [paths]")
     Path(project_file).parent.mkdir(parents=True, exist_ok=True)
     Path(config_file).write_text(
         json.dumps(listener_config(cfg.proxy_port)), encoding="utf-8"
     )
-    cmd, cwd = build_cmd(cfg, Path(project_file), Path(config_file))
-    proc = popen(cmd, cwd=cwd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    if not wait_port(cfg.proxy_port, timeout=90):
+    cmd = build_vbs_cmd(cfg)
+    proc = popen(cmd, cwd=str(Path(cfg.burp_bin)),
+                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if not wait_port(cfg.proxy_port, timeout=240):
         raise HarnessError(
-            "burp khong mo port sau 90s",
-            hint="mo Burp thu cong lan dau de hoan tat wizard license, roi chay lai",
+            "burp khong mo port sau 240s",
+            hint="mo Burp thu cong (burp.vbs), kiem tra listener "
+                 f"127.0.0.1:{cfg.proxy_port} trong Proxy settings",
         )
     return proc.pid
