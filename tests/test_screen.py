@@ -65,3 +65,68 @@ def test_find_bounds_center(tmp_path):
         encoding="utf-8")
     assert S.find_bounds(xml, "OK") == (200, 300)
     assert S.find_bounds(xml, "NOPE") is None
+
+def test_ui_dump_checks_dump_result(tmp_path):
+    import mph.device.screen as S
+    class DumpFailAdb(FakeAdb):
+        def run(self, *args, timeout=60, device=True):
+            self.calls.append(" ".join(args))
+            if args[1:3] == ("uiautomator", "dump"):
+                return type("R", (), {"ok": False, "out": "could not get idle state",
+                                      "err": "", "code": 1})()
+            return type("R", (), {"ok": True, "out": "", "err": "", "code": 0})()
+    import pytest as _p
+    from mph.errors import HarnessError as HE
+    with _p.raises(HE) as e:
+        S.ui_dump(DumpFailAdb(), tmp_path / "ui.xml")
+    assert "idle" in str(e.value) or "uiautomator" in str(e.value)
+
+def test_ui_dump_removes_stale_first(tmp_path):
+    import mph.device.screen as S
+
+    dest = tmp_path / "ui.xml"
+    class DumpAdb(FakeAdb):
+        def run(self, *args, timeout=60, device=True):
+            self.calls.append(" ".join(args))
+            if args[1:3] == ("uiautomator", "dump"):
+                out = "UI hierchary dumped to: /sdcard/ui.xml"
+            elif args[0] == "pull":
+                out = ""
+                dest.write_text("<hierarchy/>", encoding="utf-8")
+            else:
+                out = ""
+            return type("R", (), {"ok": True, "out": out, "err": "",
+                                  "code": 0})()
+
+    a = DumpAdb()
+    S.ui_dump(a, dest)
+    joined = [c for c in a.calls if c.startswith("rm")]
+    assert any("/sdcard/ui.xml" in c for c in joined)
+
+def test_find_bounds_ignores_bounds_in_content_desc(tmp_path):
+    import mph.device.screen as S
+    xml = tmp_path / "ui.xml"
+    xml.write_text(
+        '<node text="Zoom" content-desc="region [0,0][50,50]" '
+        'bounds="[500,900][700,1100]"/>', encoding="utf-8")
+    assert S.find_bounds(xml, "Zoom") == (600, 1000)  # bounds THẬT, không phải desc
+
+def test_find_bounds_rejects_empty_text(tmp_path):
+    import mph.device.screen as S
+    xml = tmp_path / "ui.xml"
+    xml.write_text('<node text="" bounds="[0,0][100][100]"/>', encoding="utf-8")
+    assert S.find_bounds(xml, "") is None
+
+def test_type_text_rejects_shell_metachars():
+    import pytest as _p
+    from mph.errors import HarnessError as HE
+    for bad in ("pa$$w0rd", "a;reboot", "a|b", "a&b", "a<b", "a(b)", "a`b",
+                "100%", "back\slash"):
+        with _p.raises(HE):
+            type_text(FakeAdb(), bad)
+
+def test_key_rejects_non_alnum():
+    import pytest as _p
+    from mph.errors import HarnessError as HE
+    with _p.raises(HE):
+        key(FakeAdb(), "3; reboot")

@@ -27,14 +27,20 @@ def swipe(adb, x1: int, y1: int, x2: int, y2: int, ms: int = 300) -> None:
             str(int(x1)), str(int(y1)), str(int(x2)), str(int(y2)), str(int(ms)))
 
 
+_META = set("$;|&<>()`\\%'\"")
+
 def type_text(adb, s: str) -> None:
-    if any(ord(ch) < 32 or ch == '"' for ch in s):
-        raise HarnessError("type_text ky tu khong ho tro",
-                            hint="chi ASCII in duoc; dung key() cho dieu khien")
+    if any(ord(ch) < 32 or ch in _META for ch in s):
+        raise HarnessError("type_text ky tu khong ho tro (shell metachar)",
+                            hint="chi ASCII in duoc, khong $;|&<>()`\\% ' \"")
     adb.run("shell", "input", "text", s.replace(" ", "%s"))
 
 
 def key(adb, keycode: str) -> None:
+    import re as _r
+    if not _r.fullmatch(r"[A-Za-z0-9_]+", keycode):
+        raise HarnessError("keycode khong hop le",
+                            hint=f"chi [A-Za-z0-9_], nhan: {keycode!r}")
     adb.run("shell", "input", "keyevent", keycode)
 
 
@@ -63,25 +69,37 @@ def screenshot(adb, dest: Path) -> dict:
 
 
 def ui_dump(adb, dest: Path) -> Path:
-    adb.run("shell", "uiautomator", "dump", "/sdcard/ui.xml", timeout=30)
+    # xóa XML cũ trên device — dump fail thường để lại file của màn TRƯỚC
+    adb.run("shell", "rm", "-f", "/sdcard/ui.xml")
+    r = adb.run("shell", "uiautomator", "dump", "/sdcard/ui.xml", timeout=30)
+    if not r.ok or "dumped" not in (r.out or ""):
+        raise HarnessError("uiautomator dump that bai (khong sinh file moi)",
+                            hint=(r.out or r.err or "")[:200])
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
     p = adb.run("pull", "/sdcard/ui.xml", str(dest), timeout=30)
     if not p.ok or not dest.exists():
-        raise HarnessError("uiautomator dump that bai", hint=p.err)
+        raise HarnessError("pull ui.xml that bai", hint=p.err)
     return dest
 
 
-_BOUNDS_RE = _re.compile(r"\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]")
+_BOUNDS_ATTR_RE = _re.compile(
+    r'bounds="\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]"')
 
 
 def find_bounds(xml: Path, text: str) -> tuple[int, int] | None:
-    """Center của node đầu có text khớp chính xác."""
+    """Center của node đầu có text khớp chính xác.
+
+    Chỉ đọc bounds trong ATTR bounds="..." — bounds-like string trong
+    content-desc/text khác không được dùng (anti wrong-tap).
+    """
+    if not text:
+        return None
     raw = Path(xml).read_text(encoding="utf-8", errors="replace")
     for m in _re.finditer(r"<node[^>]*>", raw):
         node = m.group(0)
         if f'text="{text}"' in node:
-            b = _BOUNDS_RE.search(node)
+            b = _BOUNDS_ATTR_RE.search(node)
             if b:
                 x1, y1, x2, y2 = map(int, b.groups())
                 return (x1 + x2) // 2, (y1 + y2) // 2

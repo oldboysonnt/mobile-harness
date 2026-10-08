@@ -2,8 +2,9 @@
   "mcpServers": {
     "mph": {
       "command": "python",
-      "args": ["-m", "mcp_server.server"],
-      "cwd": "C:\\Users\\sonnt\\Documents\\Mobile\\mobile-harness"
+      "args": [
+        "C:\\Users\\sonnt\\Documents\\Mobile\\mobile-harness\\mcp_server\\server.py"
+      ]
     }
   }
 }

@@ -33,7 +33,10 @@ def integrity_check(adb, cfg, ws: Path) -> dict:
         if not r.ok:
             raise HarnessError("cai SPIC that bai", hint=(r.out or "")[-200:])
     adb.run("shell", "am", "force-stop", _PKG)
-    adb.run("shell", "am", "start", "-n", _ACTIVITY)
+    r = adb.run("shell", "am", "start", "-n", _ACTIVITY)
+    if not r.ok:
+        raise HarnessError("SPIC launch that bai",
+                            hint=(r.out or r.err or "")[-200:])
     ws = Path(ws)
     ws.mkdir(parents=True, exist_ok=True)
     verdict = "NO_VERDICT"

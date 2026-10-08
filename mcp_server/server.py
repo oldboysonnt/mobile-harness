@@ -31,7 +31,7 @@ def _ws():
 
 
 def t_doctor(args):
-    rows = check_env(load_config(), Probes(devices=lambda: []))
+    rows = check_env(load_config(), Probes(devices=Adb.devices))
     return {"rows": [[n, ok, h] for n, ok, h in rows]}
 
 
