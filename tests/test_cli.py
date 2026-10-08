@@ -44,3 +44,47 @@ def test_help_lists_p4_groups():
     assert r.exit_code == 0
     for word in ("screen", "integrity"):
         assert word in r.output
+
+def test_setup_manual_streams_rows_and_exit_code(tmp_path, monkeypatch):
+    class FakeCfg:
+        workspace = tmp_path
+
+    def _fake(cfg, apk, package, serial, on_row=None):
+        if on_row:
+            on_row(("vendor", True, "ok"))
+        return True, [("vendor", True, "ok")]
+
+    monkeypatch.setattr(cli_mod, "_load_config", lambda: FakeCfg())
+    monkeypatch.setattr(cli_mod, "manual_setup", _fake)
+    monkeypatch.setattr(cli_mod, "manual_cheat_sheet",
+                        lambda cfg, package=None: ["SHEET-LINE"])
+    r = runner.invoke(app, ["setup", "manual"])
+    assert r.exit_code == 0
+    assert "[OK ] vendor: ok" in r.output
+    assert "SHEET-LINE" in r.output
+    assert (tmp_path / "CHEATSHEET.md").read_text(encoding="utf-8") == "SHEET-LINE"
+
+def test_setup_manual_fail_exit_1(tmp_path, monkeypatch):
+    class FakeCfg:
+        workspace = tmp_path
+
+    def _fake(cfg, apk, package, serial, on_row=None):
+        if on_row:
+            on_row(("burp", False, "chet"))
+        return False, [("burp", False, "chet")]
+
+    monkeypatch.setattr(cli_mod, "_load_config", lambda: FakeCfg())
+    monkeypatch.setattr(cli_mod, "manual_setup", _fake)
+    monkeypatch.setattr(cli_mod, "manual_cheat_sheet",
+                        lambda cfg, package=None: ["SHEET"])
+    r = runner.invoke(app, ["setup", "manual", "--apk", "x.apk"])
+    assert r.exit_code == 1
+    assert "[FAIL] burp: chet" in r.output
+
+def test_python_dash_m_entrypoint():
+    import subprocess
+    import sys
+    r = subprocess.run([sys.executable, "-m", "mph", "--help"],
+                       capture_output=True, text=True, timeout=60,
+                       encoding="utf-8", errors="replace")
+    assert r.returncode == 0 and "setup" in r.stdout
