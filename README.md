@@ -22,6 +22,16 @@ chương trình bug bounty còn scope, CTF/lab, hoặc có hợp đồng kiểm 
 .\setup-manual.ps1 -Serial <adb-serial>
 ```
 
+**Máy trống (mới cài Windows) cũng chạy được.** Script tự làm:
+- thiếu Python packages → tự `pip install -e .`
+- chưa có AVD/emulator → tự bootstrap (cmdline-tools + system image API 34
+  ~1.5GB + tạo AVD) rồi chạy lại chuỗi
+- doctor in checklist thành phần nào còn thiếu
+
+Chỉ 3 thứ phải cài tay (xem đầu file ps1): **Python 3.12+**, **Java**,
+**Burp Suite Pro jar + keygen** (`C:\Program Files\Burp\bin\`, license).
+Nếu dùng `-Apk` thì thêm jadx (đường dẫn trong `mph.toml`).
+
 Chuỗi chạy **fail-soft** (bước lỗi hiện lỗi rồi chạy tiếp bước sau):
 vendor artifacts → boot AVD (tự root bằng rootAVD nếu chưa có Magisk) →
 integrity stack (Zygisk DenyList/Shamiko/PIF/ẩn emulator props) → Burp +
