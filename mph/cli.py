@@ -22,6 +22,8 @@ from .frida import scripts as frida_scripts
 from .device import screen as screen_mod
 from .frida.server import frida_start as frida_server_start
 from .frida.server import frida_stop as frida_server_stop
+from .manual import cheat_sheet as manual_cheat_sheet
+from .manual import setup_manual as manual_setup
 from .proxy import burp as burp_mod
 from .proxy import cert as cert_mod
 from .proxy import route as route_mod
@@ -98,6 +100,28 @@ def setup_run() -> None:
         raise typer.Exit(code=1)
     adb.run("root")
     print(f"ready: {serial}")
+
+
+@setup_app.command("manual")
+def setup_manual_cmd(
+    apk: Path = typer.Option(None, help="APK dich: install + pull + jadx + index"),
+    package: str = typer.Option(None, help="ten package neu install tu dong khong doan ra"),
+    serial: str = typer.Option(None, help="serial thiet bi vat ly (mac dinh: AVD)"),
+):
+    """1-click moi truong pentest THU CONG — fail-soft, buoc loi khong chan buoc sau.
+
+    Vao bang setup-manual.ps1 o goc repo."""
+    cfg = _load_config()
+    ok, rows = manual_setup(cfg, apk=apk, package=package, serial=serial,
+                            on_row=lambda r: print(
+                                f"[{'OK ' if r[1] else 'FAIL'}] {r[0]}: {r[2]}"))
+    sheet = Path(cfg.workspace) / "CHEATSHEET.md"
+    sheet.parent.mkdir(parents=True, exist_ok=True)
+    lines = manual_cheat_sheet(cfg, package=package)
+    sheet.write_text("\n".join(lines), encoding="utf-8")
+    print("\n".join(lines))
+    print(f"\ncheatsheet: {sheet}")
+    raise typer.Exit(code=0 if ok else 1)
 
 
 @burp_app.command("start")
