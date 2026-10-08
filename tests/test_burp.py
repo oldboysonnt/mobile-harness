@@ -60,6 +60,7 @@ def test_build_cmd_exe_launcher(tmp_path):
 
 def test_vbs_cmd_shape(tmp_path):
     from mph.proxy.burp import build_vbs_cmd
+    (tmp_path / "burp.vbs").write_text("'vbs", encoding="ascii")
     class FakeCfg:
         burp_bin = tmp_path
     cmd = build_vbs_cmd(FakeCfg())
