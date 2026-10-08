@@ -100,8 +100,7 @@ def test_ui_dump_removes_stale_first(tmp_path):
 
     a = DumpAdb()
     S.ui_dump(a, dest)
-    joined = [c for c in a.calls if c.startswith("rm")]
-    assert any("/sdcard/ui.xml" in c for c in joined)
+    assert any("rm -f /sdcard/ui.xml" in c for c in a.calls)
 
 def test_find_bounds_ignores_bounds_in_content_desc(tmp_path):
     import mph.device.screen as S
