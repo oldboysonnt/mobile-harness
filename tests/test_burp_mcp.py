@@ -75,8 +75,9 @@ class _BodyResp:
         return False
 
 class _SseResp:
+    """Stream SSE chuẩn: các dòng cách nhau bởi \\n, mỗi event kết thúc \\n\\n."""
     def __init__(self, lines):
-        self._data = ("\n\n".join(lines) + "\n\n").encode()
+        self._data = ("\n".join(lines) + "\n\n").encode()
     def __iter__(self):
         return iter(self._data.splitlines(keepends=True))
     def __enter__(self):
@@ -123,3 +124,34 @@ def test_sse_reader_reconnects(monkeypatch):
     monkeypatch.setattr(M.urllib.request, "urlopen", fake_urlopen)
     r = BurpMcp(9999).call("project_options_get", {})
     assert "content" in r and len(n) >= 4  # GET×3 (2 fail) + POST×1
+
+def test_response_via_sse_after_endpoint(monkeypatch):
+    """Hồi quy bug 2026-10-09: reader từng return ngay sau event endpoint,
+    giết thread → mọi message response sau đó mất → tools/call timeout.
+    Burp thật trả response qua SSE (POST chỉ 202 'Accepted')."""
+    import mph.proxy.burp_mcp as M
+    posted = []
+    def fake_urlopen(url, timeout=None, **kw):
+        u = _url_of(url)
+        if "/sse" in u:
+            return _sse_resp([
+                "event: endpoint", "data: /mcp?sid=real", "",
+                # Burp push response xuống stream SAU khi mình POST
+                "event: message",
+                'data: {"jsonrpc": "2.0", "id": 1, "result": '
+                '{"content": [{"type": "text", "text": "{\\"ok\\": true}"}]}}',
+                "",
+            ])
+        posted.append(u)
+        class _Empty:
+            def read(self):
+                return b""          # 202 Accepted, body rỗng như Burp
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                return False
+        return _Empty()
+    monkeypatch.setattr(M.urllib.request, "urlopen", fake_urlopen)
+    m = BurpMcp(9876)
+    r = m.call("project_options_get", {}, timeout=5)
+    assert r["content"][0]["text"] == '{"ok": true}' and posted
