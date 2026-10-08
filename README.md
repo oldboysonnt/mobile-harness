@@ -1,5 +1,9 @@
 # mph — Mobile Pentest Harness
 
+> **Phạm vi sử dụng:** chỉ dùng kiểm thử an ninh được ủy quyền — app của riêng
+> bạn, chương trình bug bounty trong phạm vi cho phép, hoặc môi trường
+> lab/CTF. Không dùng nhắm vào hệ thống/người khác khi chưa có sự cho phép.
+
 AI harness cho mobile pentesting (Android): tự động setup emulator root +
 bypass (root/SSL/Play Integrity), route traffic qua Burp Suite, decompile &
 index mã nguồn (jadx → codebase-memory-mcp), điều khiển màn hình theo tọa độ,
